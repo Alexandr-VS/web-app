@@ -2,6 +2,8 @@ package sender
 
 import (
 	"crypto/rand"
+	"fmt"
+	"math/big"
 	"net"
 	"time"
 
@@ -10,8 +12,10 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
-func SendPackets(interfaceName string, payloadSize int, desiredBandwidth int64) error {
+func SendPackets(interfaceName string, selected string, countOfPackets int, interval int) error {
+
 	handle, err := pcap.OpenLive(interfaceName, 1500, false, pcap.BlockForever)
+
 	if err != nil {
 		return err
 	}
@@ -44,40 +48,41 @@ func SendPackets(interfaceName string, payloadSize int, desiredBandwidth int64) 
 
 	udp.SetNetworkLayerForChecksum(&ip)
 
-	payload := make([]byte, payloadSize)
-	rand.Read(payload)
+	var payload []byte
 
-	err = gopacket.SerializeLayers(buf, options,
-		&eth,
-		&ip,
-		&udp,
-		gopacket.Payload(payload),
-	)
+	for i := 0; i < countOfPackets; i++ {
+		if selected == "pseudoRand" {
+			payloadSize, err := rand.Int(rand.Reader, big.NewInt(1001)) // 1001, чтобы включить 1000
+			if err != nil {
+				fmt.Println("Ошибка при генерации случайного числа:", err)
+				return err
+			}
+			payload = make([]byte, int(payloadSize.Int64()))
+			_, err = rand.Read(payload)
+			if err != nil {
+				fmt.Println("Ошибка при чтении случайных байтов:", err)
+				return err
+			}
+		} else if selected == "file" {
 
-	if err != nil {
-		return err
+		}
+		err = gopacket.SerializeLayers(buf, options,
+			&eth,
+			&ip,
+			&udp,
+			gopacket.Payload(payload),
+		)
+		if err != nil {
+			return err
+		}
+
+		packetData := buf.Bytes()
+
+		err = handle.WritePacketData(packetData)
+		if err != nil {
+			return err
+		}
+		time.Sleep(time.Duration(interval * int(time.Second)))
 	}
-
-	packetSizeInBits := int64(payloadSize * 8)
-	packetsPerSecond := desiredBandwidth / packetSizeInBits
-	interval := time.Second / time.Duration(packetsPerSecond)
-
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	packetData := buf.Bytes()
-
-	// for range ticker.C {
-	// 	err = handle.WritePacketData(packetData)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	err = handle.WritePacketData(packetData)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }

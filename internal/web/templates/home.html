@@ -1,16 +1,39 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Packet Sender</title>
+    <title>Генератор пакетов</title>
 </head>
 <body>
-    <h1>Welcome to Packet Sender</h1>
-    <form action="/send" method="POST">
-        <label for="payloadSize">Payload Size:</label>
-        <input type="number" id="payloadSize" name="payloadSize" required>
-        <button type="submit">Send Packets</button>
+    <h1>Отправитель пакетов</h1>
+    <form action="/send" method="post">
+
+        <div style="margin-bottom: 20px;">
+            <label>Выберите источник данных:</label><br style="margin-bottom: 10px;">
+            <div style="margin-bottom: 10px;">
+                <input type="radio" id="pseudoRand" name="dataSource" value="pseudoRand" checked>
+                <label for="pseudoRand">ПСП с большим периодом</label>
+            </div>
+            <div>
+                <input type="radio" id="file" name="dataSource" value="file">
+                <label for="file">Файл</label>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label for="countOfPackets">Количество пакетов:</label>
+            <input type="number" placeholder="Введите число" id="countOfPackets" name="countOfPackets" required>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label for="interval">Интервал:</label>
+            <input type="number" placeholder="Введите число" id="interval" name="interval" required>
+            <label for="interval">сек</label>
+        </div>
+
+        <button type="submit">Отправить пакет</button>
+
     </form>
 </body>
 </html>
