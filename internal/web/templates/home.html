@@ -4,20 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Генератор пакетов</title>
+
+    <script>
+        function toggleFileInput() {
+            const fileInput = document.getElementById('filename');
+            const pseudoRandOption = document.getElementById('pseudoRand');
+            
+            if (pseudoRandOption.checked) {
+                fileInput.style.display = 'none';
+            } else {
+                fileInput.style.display = 'block';
+            }
+        }
+    </script>
+
 </head>
 <body>
     <h1>Отправитель пакетов</h1>
-    <form action="/send" method="post">
+    <form action="/send" method="post" enctype="multipart/form-data">
 
         <div style="margin-bottom: 20px;">
-            <label>Выберите источник данных:</label><br style="margin-bottom: 10px;">
+            <label>Выберите источник данных:</label><br style="margin-bottom: 20px;">
             <div style="margin-bottom: 10px;">
-                <input type="radio" id="pseudoRand" name="dataSource" value="pseudoRand" checked>
+                <input type="radio" id="pseudoRand" name="dataSource" value="pseudoRand" checked onclick="toggleFileInput()">
                 <label for="pseudoRand">ПСП с большим периодом</label>
             </div>
+
             <div>
-                <input type="radio" id="file" name="dataSource" value="file">
-                <label for="file">Файл</label>
+                <input type="radio" id="file" name="dataSource" value="file" onclick="toggleFileInput()">
+                <label for="file">Файл</label><br style="margin-bottom: 10px;">
+                <input type="file" id="filename" name="filename" style="display: none;">
             </div>
         </div>
 
@@ -32,8 +48,12 @@
             <label for="interval">сек</label>
         </div>
 
-        <button type="submit">Отправить пакет</button>
+        <button type="submit">Сгенерировать пакет</button>
 
     </form>
+
+    <script>
+        toggleFileInput();
+    </script>
 </body>
 </html>

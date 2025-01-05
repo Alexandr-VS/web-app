@@ -3,6 +3,7 @@ package web
 import (
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -47,7 +48,28 @@ func SendPacketsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = sender.SendPackets("eth0", selected, countOfPackets, interval)
+	var contentBytes []byte
+	if r.FormValue("dataSource") == "file" {
+		err = r.ParseMultipartForm(10 << 20) // максимум 10Mb
+		if err != nil {
+			http.Error(w, "Ошибка при получении файла", http.StatusBadRequest)
+			return
+		}
+		file, _, err := r.FormFile("filename")
+		if err != nil {
+			http.Error(w, "Ошибка при получении файла", http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+
+		contentBytes, err = io.ReadAll(file)
+		if err != nil {
+			http.Error(w, "Ошибка при чтении файла", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	err = sender.SendPackets("eth0", selected, countOfPackets, interval, contentBytes)
 	if err != nil {
 		fmt.Println("Ошибка отправки")
 		http.Error(w, err.Error(), http.StatusInternalServerError)

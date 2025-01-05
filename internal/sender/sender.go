@@ -12,7 +12,7 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
-func SendPackets(interfaceName string, selected string, countOfPackets int, interval int) error {
+func SendPackets(interfaceName string, selected string, countOfPackets int, interval int, contentBytes []byte) error {
 
 	handle, err := pcap.OpenLive(interfaceName, 1500, false, pcap.BlockForever)
 
@@ -52,7 +52,7 @@ func SendPackets(interfaceName string, selected string, countOfPackets int, inte
 
 	for i := 0; i < countOfPackets; i++ {
 		if selected == "pseudoRand" {
-			payloadSize, err := rand.Int(rand.Reader, big.NewInt(1001)) // 1001, чтобы включить 1000
+			payloadSize, err := rand.Int(rand.Reader, big.NewInt(1001))
 			if err != nil {
 				fmt.Println("Ошибка при генерации случайного числа:", err)
 				return err
@@ -64,7 +64,7 @@ func SendPackets(interfaceName string, selected string, countOfPackets int, inte
 				return err
 			}
 		} else if selected == "file" {
-
+			payload = contentBytes
 		}
 		err = gopacket.SerializeLayers(buf, options,
 			&eth,
