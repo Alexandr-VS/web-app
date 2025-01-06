@@ -11,7 +11,7 @@ func main() {
 	// Новый маршрутизатор
 	mux := http.NewServeMux()
 
-	// Маршруты
+	// Обработка маршрутов
 	mux.HandleFunc("/", web.HomePageHandler)
 	mux.HandleFunc("/send", web.SendPacketsHandler)
 

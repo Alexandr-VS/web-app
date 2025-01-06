@@ -14,7 +14,7 @@ func HomePageHandler(w http.ResponseWriter, r *http.Request) {
 	// Считывание шаблона
 	tmpl, err := template.ParseFiles("../../internal/web/templates/home.html")
 	if err != nil {
-		log.Printf("Шаблоне не найден: %v", err)
+		log.Printf("Шаблон не найден: %v", err)
 		http.Error(w, "Ошибка загрузки шаблона", http.StatusInternalServerError)
 		return
 	}
@@ -31,6 +31,15 @@ func SendPacketsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
+
+	macSrc := r.FormValue("mac-src")
+	macDst := r.FormValue("mac-dst")
+	ipSrc := r.FormValue("ip-src")
+	ipDst := r.FormValue("ip-dst")
+	srcPort := r.FormValue("src-port")
+	dstPort := r.FormValue("dst-port")
+
+	identifiers := []string{macSrc, macDst, ipSrc, ipDst, srcPort, dstPort}
 
 	selected := r.FormValue("dataSource")
 
@@ -55,12 +64,17 @@ func SendPacketsHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Ошибка при получении файла", http.StatusBadRequest)
 			return
 		}
-		file, _, err := r.FormFile("filename")
+		file, header, err := r.FormFile("filename")
 		if err != nil {
 			http.Error(w, "Ошибка при получении файла", http.StatusBadRequest)
 			return
 		}
 		defer file.Close()
+
+		if header.Size == 0 {
+			http.Error(w, "Файл пуст", http.StatusBadRequest)
+			return
+		}
 
 		contentBytes, err = io.ReadAll(file)
 		if err != nil {
@@ -69,7 +83,7 @@ func SendPacketsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = sender.SendPackets("eth0", selected, countOfPackets, interval, contentBytes)
+	err = sender.SendPackets("eth0", selected, countOfPackets, interval, contentBytes, identifiers)
 	if err != nil {
 		fmt.Println("Ошибка отправки")
 		http.Error(w, err.Error(), http.StatusInternalServerError)

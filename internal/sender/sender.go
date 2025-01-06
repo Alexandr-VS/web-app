@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/google/gopacket"
@@ -12,7 +13,7 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
-func SendPackets(interfaceName string, selected string, countOfPackets int, interval int, contentBytes []byte) error {
+func SendPackets(interfaceName string, selected string, countOfPackets int, interval int, contentBytes []byte, identifiers []string) error {
 
 	handle, err := pcap.OpenLive(interfaceName, 1500, false, pcap.BlockForever)
 
@@ -29,22 +30,41 @@ func SendPackets(interfaceName string, selected string, countOfPackets int, inte
 
 	eth := layers.Ethernet{
 		EthernetType: layers.EthernetTypeIPv4,
-		SrcMAC:       net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-		DstMAC:       net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+		SrcMAC:       net.HardwareAddr(identifiers[0]),
+		DstMAC:       net.HardwareAddr(identifiers[1]),
 	}
 
 	ip := layers.IPv4{
 		Version:  4,
 		TTL:      64,
-		SrcIP:    net.IP{127, 0, 0, 1},
-		DstIP:    net.IP{127, 0, 0, 1},
+		SrcIP:    net.IP(identifiers[2]),
+		DstIP:    net.IP(identifiers[3]),
 		Protocol: layers.IPProtocolUDP,
 	}
 
-	udp := layers.UDP{
-		SrcPort: 62003,
-		DstPort: 8080,
+	srcPort, err := strconv.Atoi(identifiers[4])
+	if err != nil {
+		fmt.Println("Ошибка преобразования в число порта источника")
+		return err
 	}
+
+	dstPort, err := strconv.Atoi(identifiers[5])
+	if err != nil {
+		fmt.Println("Ошибка преобразования в число порта получателя")
+		return err
+	}
+
+	udp := layers.UDP{
+		SrcPort: layers.UDPPort(srcPort),
+		DstPort: layers.UDPPort(dstPort),
+	}
+
+	fmt.Println(net.HardwareAddr(identifiers[0]))
+	fmt.Println(net.HardwareAddr(identifiers[1]))
+	fmt.Println(net.IP(identifiers[2]))
+	fmt.Println(net.IP(identifiers[3]))
+	fmt.Println(layers.UDPPort(srcPort))
+	fmt.Println(layers.UDPPort(dstPort))
 
 	udp.SetNetworkLayerForChecksum(&ip)
 
@@ -66,12 +86,14 @@ func SendPackets(interfaceName string, selected string, countOfPackets int, inte
 		} else if selected == "file" {
 			payload = contentBytes
 		}
+
 		err = gopacket.SerializeLayers(buf, options,
 			&eth,
 			&ip,
 			&udp,
 			gopacket.Payload(payload),
 		)
+
 		if err != nil {
 			return err
 		}
@@ -79,9 +101,11 @@ func SendPackets(interfaceName string, selected string, countOfPackets int, inte
 		packetData := buf.Bytes()
 
 		err = handle.WritePacketData(packetData)
+
 		if err != nil {
 			return err
 		}
+
 		time.Sleep(time.Duration(interval * int(time.Second)))
 	}
 	return nil
