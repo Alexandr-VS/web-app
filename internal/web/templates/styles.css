@@ -1,0 +1,85 @@
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #e9ecef;
+    color: #333;
+    margin: 0;
+    padding: 20px;
+}
+
+h1 {
+    text-align: center;
+    color: #4CAF50;
+    margin-bottom: 20px;
+}
+
+form {
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    padding: 30px;
+    max-width: 600px;
+    margin: auto;
+    transition: transform 0.3s;
+}
+
+form:hover {
+    transform: scale(1.02);
+}
+
+label {
+    margin-top: 10px;
+    font-weight: bold;
+    display: block;
+}
+
+input[type="text"], input[type="number"], input[type="file"], input[type="radio"] {
+    width: calc(100% - 22px);
+    padding: 10px;
+    margin: 5px 0 20px;
+    border: 2px solid #ccc;
+    border-radius: 5px;
+    transition: border-color 0.3s;
+}
+
+input[type="text"]:focus, input[type="number"]:focus {
+    border-color: #4CAF50;
+}
+
+input[type="radio"] {
+    margin-right: -270px;
+    margin-left: -250px; 
+}
+
+button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s, transform 0.2s;
+    width: 100%;
+}
+
+button:hover {
+    background-color: #45a049;
+    transform: translateY(-2px);
+}
+
+.valid {
+    border-color: green;
+    background-color: #d4edda;
+}
+
+.invalid {
+    border-color: red;
+    background-color: #f8d7da;
+}
+
+small {
+    display: block;
+    margin-top: -10px;
+    margin-bottom: 20px;
+    color: #6c757d;
+}

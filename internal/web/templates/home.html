@@ -4,80 +4,61 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Генератор пакетов</title>
-    <style>
-        .valid {
-            border-color: green;
-            background-color: lightgreen;
-        }
-        .invalid {
-            border-color: red;
-            background-color: lightcoral;
-        }
-    </style>
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
     <h1>Отправитель пакетов</h1>
     <form action="/send" method="post" enctype="multipart/form-data">
+        <h2>Настройки сети</h2>
+        
+        <label for="mac-src">MAC-адрес источника:</label>
+        <input type="text" placeholder="Введите MAC-адрес:" id="mac-src" name="mac-src" oninput="validateMAC(this)" required>
+        <small>Формат: xx:xx:xx:xx:xx:xx или xx-xx-xx-xx-xx-xx</small>
 
-        <div style="margin-bottom: 10px;">
+        <label for="mac-dst">MAC-адрес получателя:</label>
+        <input type="text" placeholder="Введите MAC-адрес" id="mac-dst" name="mac-dst" oninput="validateMAC(this)" required>
+        <small>Формат: xx:xx:xx:xx:xx:xx или xx-xx-xx-xx-xx-xx</small>
 
-            <label for="mac-src">MAC-адрес источника:</label>
-            <input type="text" placeholder="Введите MAC-адрес:" id="mac-src" name="mac-src" oninput="validateMAC(this)" required>
-            <small>Формат: xx:xx:xx:xx:xx:xx или xx-xx-xx-xx-xx-xx</small>
-            <br><br>
+        <label for="ip-src">IP-адрес источника:</label>
+        <input type="text" placeholder="Введите IP-адрес" id="ip-src" name="ip-src" oninput="validateIP(this)" required>
+        <small>Формат: xxx.xxx.xxx.xxx</small>
 
-            <label for="mac-dst">MAC-адрес получателя:</label>
-            <input type="text" placeholder="Введите MAC-адрес" id="mac-dst" name="mac-dst" oninput="validateMAC(this)" required>
-            <small>Формат: xx:xx:xx:xx:xx:xx или xx-xx-xx-xx-xx-xx</small>
-            <br><br>
+        <label for="ip-dst">IP-адрес получателя:</label>
+        <input type="text" placeholder="Введите IP-адрес" id="ip-dst" name="ip-dst" oninput="validateIP(this)" required>
+        <small>Формат: xxx.xxx.xxx.xxx</small>
 
-            <label for="ip-src">IP-адрес источника:</label>
-            <input type="text" placeholder="Введите IP-адрес" id="ip-src" name="ip-src" oninput="validateIP(this)" required>
-            <small>Формат: xxx.xxx.xxx.xxx</small>
-            <br><br>
+        <label for="src-port">Порт источника:</label>
+        <input type="text" placeholder="Введите номер порта" id="src-port" name="src-port" oninput="validatePort(this)" required>
 
-            <label for="ip-dst">IP-адрес получателя:</label>
-            <input type="text" placeholder="Введите IP-адрес" id="ip-dst" name="ip-dst" oninput="validateIP(this)" required>
-            <small>Формат: xxx.xxx.xxx.xxx</small>
-            <br><br>
+        <label for="dst-port">Порт получателя:</label>
+        <input type="text" placeholder="Введите номер порта" id="dst-port" name="dst-port" oninput="validatePort(this)" required>
 
-            <label for="src-port">Порт источника:</label>
-            <input type="text" placeholder="Введите номер порта" id="src-port" name="src-port" oninput="validatePort(this)" required>
-            <br><br>
-
-            <label for="dst-port">Порт получателя:</label>
-            <input type="text" placeholder="Введите номер порта" id="dst-port" name="dst-port" oninput="validatePort(this)" required>
-            <br><br>
-
+        <h2>Источник данных</h2>
+        <div>
+            <label>
+                <input type="radio" id="pseudoRand" name="dataSource" value="pseudoRand" checked onclick="toggleFileInput()">
+                ПСП с большим периодом
+            </label>
         </div>
         
-        <div style="margin-bottom: 20px;">
-            <label>Источник данных:</label><br style="margin-bottom: 20px;">
-            <div style="margin-bottom: 10px;">
-                <input type="radio" id="pseudoRand" name="dataSource" value="pseudoRand" checked onclick="toggleFileInput()">
-                <label for="pseudoRand">ПСП с большим периодом</label>
-            </div>
-
-            <div>
+        <div>
+            <label>
                 <input type="radio" id="file" name="dataSource" value="file" onclick="toggleFileInput()">
-                <label for="file">Файл</label><br style="margin-bottom: 10px;">
+                Файл
                 <input type="file" id="filename" name="filename" style="display: none;">
-            </div>
+            </label>
         </div>
+        
 
-        <div style="margin-bottom: 20px;">
-            <label for="countOfPackets">Количество пакетов:</label>
-            <input type="number" placeholder="Введите число" id="countOfPackets" name="countOfPackets" required>
-        </div>
+        <h2>Параметры пакетов</h2>
+        <label for="countOfPackets">Количество пакетов:</label>
+        <input type="number" placeholder="Введите число" id="countOfPackets" name="countOfPackets" required>
 
-        <div style="margin-bottom: 20px;">
-            <label for="interval">Интервал:</label>
-            <input type="number" placeholder="Введите число" id="interval" name="interval" required>
-            <label for="interval">сек</label>
-        </div>
+        <label for="interval">Интервал:</label>
+        <input type="number" placeholder="Введите число" id="interval" name="interval" required>
+        <small>сек</small>
 
         <button type="submit">Сгенерировать пакет</button>
-
     </form>
 
     <script>
@@ -145,7 +126,6 @@
             checkInputsOnLoad();
             toggleFileInput();
         });
-
     </script>
 </body>
 </html>
