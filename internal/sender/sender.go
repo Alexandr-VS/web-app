@@ -28,43 +28,54 @@ func SendPackets(interfaceName string, selected string, countOfPackets int, inte
 		FixLengths:       true,
 	}
 
+	srcMAC, err := parseMAC(identifiers[0])
+	if err != nil {
+		return err
+	}
+
+	dstMAC, err := parseMAC(identifiers[1])
+	if err != nil {
+		return err
+	}
+
+	srcIP, err := parseIP(identifiers[2])
+	if err != nil {
+		return err
+	}
+
+	dstIP, err := parseIP(identifiers[3])
+	if err != nil {
+		return err
+	}
+
+	srcPort, err := strconv.Atoi(identifiers[4])
+	if err != nil {
+		return fmt.Errorf("ошибка преобразования в число порта источника: %v", err)
+	}
+
+	dstPort, err := strconv.Atoi(identifiers[5])
+	if err != nil {
+		return fmt.Errorf("ошибка преобразования в число порта получателя: %v", err)
+	}
+
 	eth := layers.Ethernet{
 		EthernetType: layers.EthernetTypeIPv4,
-		SrcMAC:       net.HardwareAddr(identifiers[0]),
-		DstMAC:       net.HardwareAddr(identifiers[1]),
+		SrcMAC:       srcMAC,
+		DstMAC:       dstMAC,
 	}
 
 	ip := layers.IPv4{
 		Version:  4,
 		TTL:      64,
-		SrcIP:    net.IP(identifiers[2]),
-		DstIP:    net.IP(identifiers[3]),
+		SrcIP:    srcIP,
+		DstIP:    dstIP,
 		Protocol: layers.IPProtocolUDP,
-	}
-
-	srcPort, err := strconv.Atoi(identifiers[4])
-	if err != nil {
-		fmt.Println("Ошибка преобразования в число порта источника")
-		return err
-	}
-
-	dstPort, err := strconv.Atoi(identifiers[5])
-	if err != nil {
-		fmt.Println("Ошибка преобразования в число порта получателя")
-		return err
 	}
 
 	udp := layers.UDP{
 		SrcPort: layers.UDPPort(srcPort),
 		DstPort: layers.UDPPort(dstPort),
 	}
-
-	fmt.Println(net.HardwareAddr(identifiers[0]))
-	fmt.Println(net.HardwareAddr(identifiers[1]))
-	fmt.Println(net.IP(identifiers[2]))
-	fmt.Println(net.IP(identifiers[3]))
-	fmt.Println(layers.UDPPort(srcPort))
-	fmt.Println(layers.UDPPort(dstPort))
 
 	udp.SetNetworkLayerForChecksum(&ip)
 
@@ -109,4 +120,20 @@ func SendPackets(interfaceName string, selected string, countOfPackets int, inte
 		time.Sleep(time.Duration(interval * int(time.Second)))
 	}
 	return nil
+}
+
+func parseMAC(macStr string) (net.HardwareAddr, error) {
+	mac, err := net.ParseMAC(macStr)
+	if err != nil {
+		return nil, fmt.Errorf("неверный формат MAC-адреса: %s", macStr)
+	}
+	return mac, nil
+}
+
+func parseIP(ipStr string) (net.IP, error) {
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return nil, fmt.Errorf("неверный формат IP-адреса: %s", ipStr)
+	}
+	return ip, nil
 }
