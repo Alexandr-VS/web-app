@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"web-api/internal/web"
 )
@@ -15,16 +16,20 @@ func main() {
 	// Обработка статических файлов
 	staticDir := http.FileServer(http.Dir(filepath.Join("..", "..", "internal", "web", "templates")))
 
-	mux.Handle("/styles.css", staticDir)   // Обработка CSS файла
-	mux.Handle("/success.html", staticDir) // Обработка success.html, если нужно
+	mux.Handle("/styles.css", staticDir)
+	mux.Handle("/success.html", staticDir)
 
 	// Обработка маршрутов
 	mux.HandleFunc("/", web.HomePageHandler)
 	mux.HandleFunc("/send", web.SendPacketsHandler)
 
 	// Запуск сервера
-	log.Println("Starting server on :8080")
-	if err := http.ListenAndServe(":8080", mux); err != nil {
+	port := ":8080"
+	if len(os.Args) > 1 {
+		port = ":" + os.Args[1]
+	}
+	log.Println("Starting server on", port)
+	if err := http.ListenAndServe(port, mux); err != nil {
 		log.Fatal(err)
 	}
 }
