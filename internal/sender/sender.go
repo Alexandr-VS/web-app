@@ -13,7 +13,7 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
-func SendPackets(interfaceName string, selected string, countOfPackets int, interval int, contentBytes []byte, identifiers []string) error {
+func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, interval int, contentBytes []byte, identifiers []string) error {
 
 	handle, err := pcap.OpenLive(interfaceName, 1500, false, pcap.BlockForever)
 
@@ -58,6 +58,12 @@ func SendPackets(interfaceName string, selected string, countOfPackets int, inte
 		return fmt.Errorf("ошибка преобразования в число порта получателя: %v", err)
 	}
 
+	ttl, err := strconv.Atoi(identifiers[6])
+	if err != nil {
+		return fmt.Errorf("ошибка преобразовани в число ttl")
+	}
+	fmt.Println(ttl)
+
 	eth := layers.Ethernet{
 		EthernetType: layers.EthernetTypeIPv4,
 		SrcMAC:       srcMAC,
@@ -66,7 +72,7 @@ func SendPackets(interfaceName string, selected string, countOfPackets int, inte
 
 	ip := layers.IPv4{
 		Version:  4,
-		TTL:      64,
+		TTL:      uint8(ttl),
 		SrcIP:    srcIP,
 		DstIP:    dstIP,
 		Protocol: layers.IPProtocolUDP,
@@ -82,7 +88,7 @@ func SendPackets(interfaceName string, selected string, countOfPackets int, inte
 	var payload []byte
 
 	for i := 0; i < countOfPackets; i++ {
-		if selected == "pseudoRand" {
+		if selectedSrc == "pseudoRand" {
 			payloadSize, err := rand.Int(rand.Reader, big.NewInt(1001))
 			if err != nil {
 				fmt.Println("Ошибка при генерации случайного числа:", err)
@@ -94,7 +100,7 @@ func SendPackets(interfaceName string, selected string, countOfPackets int, inte
 				fmt.Println("Ошибка при чтении случайных байтов:", err)
 				return err
 			}
-		} else if selected == "file" {
+		} else if selectedSrc == "file" {
 			payload = contentBytes
 		}
 

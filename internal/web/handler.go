@@ -28,6 +28,7 @@ func HomePageHandler(w http.ResponseWriter, r *http.Request) {
 
 // Обработчик отправки пакетов
 func SendPacketsHandler(w http.ResponseWriter, r *http.Request) {
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
@@ -39,10 +40,14 @@ func SendPacketsHandler(w http.ResponseWriter, r *http.Request) {
 	ipDst := r.FormValue("ip-dst")
 	srcPort := r.FormValue("src-port")
 	dstPort := r.FormValue("dst-port")
+	ttl := r.FormValue("TTL")
+	if ttl == "" {
+		ttl = "64"
+	}
 
-	identifiers := []string{macSrc, macDst, ipSrc, ipDst, srcPort, dstPort}
+	identifiers := []string{macSrc, macDst, ipSrc, ipDst, srcPort, dstPort, ttl}
 
-	selected := r.FormValue("dataSource")
+	selectedSrc := r.FormValue("dataSource")
 
 	countOfPackets, err := strconv.Atoi(r.FormValue("countOfPackets"))
 	if err != nil {
@@ -84,7 +89,7 @@ func SendPacketsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = sender.SendPackets("eth0", selected, countOfPackets, interval, contentBytes, identifiers)
+	err = sender.SendPackets("eth0", selectedSrc, countOfPackets, interval, contentBytes, identifiers)
 	if err != nil {
 		fmt.Println("Ошибка отправки пакетов")
 		http.Error(w, err.Error(), http.StatusInternalServerError)

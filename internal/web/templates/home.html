@@ -9,7 +9,7 @@
 <body>
     <h1>Отправитель пакетов</h1>
     <form action="/send" method="post" enctype="multipart/form-data">
-        <h2>Настройки сети</h2>
+        <h2>Сетевые параметры</h2>
         
         <label for="mac-src">MAC-адрес источника:</label>
         <input type="text" placeholder="Введите MAC-адрес:" id="mac-src" name="mac-src" oninput="validateMAC(this)" required>
@@ -32,6 +32,10 @@
 
         <label for="dst-port">Порт получателя:</label>
         <input type="text" placeholder="Введите номер порта" id="dst-port" name="dst-port" oninput="validatePort(this)" required>
+
+        <label for="TTL">TTL:</label>
+        <input type="text" placeholder="Введите число" id="TTL" name="TTL">        
+        <small>По умолчанию: 64</small>
 
         <h2>Источник данных</h2>
         <div>
