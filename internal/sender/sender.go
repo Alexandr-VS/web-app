@@ -62,7 +62,6 @@ func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, i
 	if err != nil {
 		return fmt.Errorf("ошибка преобразовани в число ttl")
 	}
-	fmt.Println(ttl)
 
 	eth := layers.Ethernet{
 		EthernetType: layers.EthernetTypeIPv4,
