@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"web-api/internal/web"
+	"web-app/internal/web"
 )
 
 func main() {

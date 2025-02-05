@@ -7,7 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"web-api/internal/sender"
+	"web-app/internal/sender"
 )
 
 func HomePageHandler(w http.ResponseWriter, r *http.Request) {
@@ -56,7 +56,7 @@ func SendPacketsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	interval, err := strconv.Atoi(r.FormValue("interval"))
+	interval, err := strconv.ParseFloat(r.FormValue("interval"), 64)
 	if err != nil {
 		fmt.Println("Ошибка преобразования:", err)
 		http.Error(w, "Ошибка преобразования", http.StatusBadRequest)

@@ -4,16 +4,16 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
-	"net"
 	"strconv"
 	"time"
+	"web-app/internal/utils"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 )
 
-func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, interval int, contentBytes []byte, identifiers []string) error {
+func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, interval float64, contentBytes []byte, identifiers []string) error {
 
 	handle, err := pcap.OpenLive(interfaceName, 1500, false, pcap.BlockForever)
 
@@ -28,22 +28,22 @@ func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, i
 		FixLengths:       true,
 	}
 
-	srcMAC, err := parseMAC(identifiers[0])
+	srcMAC, err := utils.ParseMAC(identifiers[0])
 	if err != nil {
 		return err
 	}
 
-	dstMAC, err := parseMAC(identifiers[1])
+	dstMAC, err := utils.ParseMAC(identifiers[1])
 	if err != nil {
 		return err
 	}
 
-	srcIP, err := parseIP(identifiers[2])
+	srcIP, err := utils.ParseIP(identifiers[2])
 	if err != nil {
 		return err
 	}
 
-	dstIP, err := parseIP(identifiers[3])
+	dstIP, err := utils.ParseIP(identifiers[3])
 	if err != nil {
 		return err
 	}
@@ -122,23 +122,7 @@ func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, i
 			return err
 		}
 
-		time.Sleep(time.Duration(interval * int(time.Second)))
+		time.Sleep(time.Duration(interval * float64(time.Second)))
 	}
 	return nil
-}
-
-func parseMAC(macStr string) (net.HardwareAddr, error) {
-	mac, err := net.ParseMAC(macStr)
-	if err != nil {
-		return nil, fmt.Errorf("неверный формат MAC-адреса: %s", macStr)
-	}
-	return mac, nil
-}
-
-func parseIP(ipStr string) (net.IP, error) {
-	ip := net.ParseIP(ipStr)
-	if ip == nil {
-		return nil, fmt.Errorf("неверный формат IP-адреса: %s", ipStr)
-	}
-	return ip, nil
 }

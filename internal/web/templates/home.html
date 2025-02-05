@@ -59,7 +59,7 @@
         <input type="number" placeholder="Введите число" id="countOfPackets" name="countOfPackets" required>
 
         <label for="interval">Интервал:</label>
-        <input type="number" placeholder="Введите число" id="interval" name="interval" required>
+        <input type="text" placeholder="Введите число" id="interval" name="interval" required>
         <small>сек</small>
 
         <button type="submit">Сгенерировать пакет</button>
@@ -125,6 +125,12 @@
             validatePort(portSrcInput);
             validatePort(portDstInput);
         }
+
+        document.getElementById('interval').addEventListener('input', function (event) {
+            this.value = this.value
+                .replace(/,/g, '.') // Заменяем запятую на точку
+                .trim(); // Удаляем пробелы в начале и в конце
+        });
 
         document.addEventListener('DOMContentLoaded', () => {
             checkInputsOnLoad();
