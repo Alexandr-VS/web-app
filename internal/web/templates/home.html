@@ -55,6 +55,9 @@
         
 
         <h2>Параметры пакетов</h2>
+        <label for="packetSize" id="packetSizeLabel" style="display: none;">Размер пакета (в байтах):</label>
+        <input type="number" placeholder="Введите размер пакета" id="packetSize" name="packetSize" style="display: none;">
+        
         <label for="countOfPackets">Количество пакетов:</label>
         <input type="number" placeholder="Введите число" id="countOfPackets" name="countOfPackets" required>
 
@@ -69,11 +72,18 @@
         function toggleFileInput() {
             const fileInput = document.getElementById('filename');
             const pseudoRandOption = document.getElementById('pseudoRand');
-            
+            const packetSizeInput = document.getElementById('packetSize');
+            const packetSizeLabel = document.getElementById('packetSizeLabel');
+
             if (pseudoRandOption.checked) {
                 fileInput.style.display = 'none';
+                packetSizeInput.style.display = 'block';
+                packetSizeLabel.style.display = 'block';
+
             } else {
                 fileInput.style.display = 'block';
+                packetSizeInput.style.display = 'none';
+                packetSizeLabel.style.display = 'none';
             }
         }
 

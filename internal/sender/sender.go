@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"strconv"
 	"time"
+	"web-app/internal/models"
 	"web-app/internal/utils"
 
 	"github.com/google/gopacket"
@@ -13,12 +14,11 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
-func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, interval float64, contentBytes []byte, identifiers []string) error {
-
+func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, interval float64, packetSizeStr string, contentBytes []byte, params models.PacketParams) error {
+	// Открытие интерфейса для отправки пакетов
 	handle, err := pcap.OpenLive(interfaceName, 1500, false, pcap.BlockForever)
-
 	if err != nil {
-		return err
+		return fmt.Errorf("ошибка открытия интерфейса: %v", err)
 	}
 	defer handle.Close()
 
@@ -28,41 +28,44 @@ func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, i
 		FixLengths:       true,
 	}
 
-	srcMAC, err := utils.ParseMAC(identifiers[0])
+	// Парсинг MAC и IP адресов
+	srcMAC, err := utils.ParseMAC(params.MacSrc)
 	if err != nil {
-		return err
+		return fmt.Errorf("ошибка парсинга MAC-адреса источника: %v", err)
 	}
 
-	dstMAC, err := utils.ParseMAC(identifiers[1])
+	dstMAC, err := utils.ParseMAC(params.MacDst)
 	if err != nil {
-		return err
+		return fmt.Errorf("ошибка парсинга MAC-адреса получателя: %v", err)
 	}
 
-	srcIP, err := utils.ParseIP(identifiers[2])
+	srcIP, err := utils.ParseIP(params.IpSrc)
 	if err != nil {
-		return err
+		return fmt.Errorf("ошибка парсинга IP-адреса источника: %v", err)
 	}
 
-	dstIP, err := utils.ParseIP(identifiers[3])
+	dstIP, err := utils.ParseIP(params.IpDst)
 	if err != nil {
-		return err
+		return fmt.Errorf("ошибка парсинга IP-адреса получателя: %v", err)
 	}
 
-	srcPort, err := strconv.Atoi(identifiers[4])
+	// Преобразование портов и TTL
+	srcPort, err := strconv.Atoi(params.SrcPort)
 	if err != nil {
-		return fmt.Errorf("ошибка преобразования в число порта источника: %v", err)
+		return fmt.Errorf("ошибка преобразования порта источника: %v", err)
 	}
 
-	dstPort, err := strconv.Atoi(identifiers[5])
+	dstPort, err := strconv.Atoi(params.DstPort)
 	if err != nil {
-		return fmt.Errorf("ошибка преобразования в число порта получателя: %v", err)
+		return fmt.Errorf("ошибка преобразования порта получателя: %v", err)
 	}
 
-	ttl, err := strconv.Atoi(identifiers[6])
+	ttl, err := strconv.Atoi(params.TTL)
 	if err != nil {
-		return fmt.Errorf("ошибка преобразовани в число ttl")
+		return fmt.Errorf("ошибка преобразования TTL: %v", err)
 	}
 
+	// Создание Ethernet, IP и UDP заголовков
 	eth := layers.Ethernet{
 		EthernetType: layers.EthernetTypeIPv4,
 		SrcMAC:       srcMAC,
@@ -84,23 +87,11 @@ func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, i
 
 	udp.SetNetworkLayerForChecksum(&ip)
 
-	var payload []byte
-
+	// Отправка пакетов
 	for i := 0; i < countOfPackets; i++ {
-		if selectedSrc == "pseudoRand" {
-			payloadSize, err := rand.Int(rand.Reader, big.NewInt(1001))
-			if err != nil {
-				fmt.Println("Ошибка при генерации случайного числа:", err)
-				return err
-			}
-			payload = make([]byte, int(payloadSize.Int64()))
-			_, err = rand.Read(payload)
-			if err != nil {
-				fmt.Println("Ошибка при чтении случайных байтов:", err)
-				return err
-			}
-		} else if selectedSrc == "file" {
-			payload = contentBytes
+		payload, err := generatePayload(selectedSrc, packetSizeStr, contentBytes)
+		if err != nil {
+			return err
 		}
 
 		err = gopacket.SerializeLayers(buf, options,
@@ -109,20 +100,49 @@ func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, i
 			&udp,
 			gopacket.Payload(payload),
 		)
-
 		if err != nil {
-			return err
+			return fmt.Errorf("ошибка сериализации пакетов: %v", err)
 		}
 
 		packetData := buf.Bytes()
 
 		err = handle.WritePacketData(packetData)
-
 		if err != nil {
-			return err
+			return fmt.Errorf("ошибка записи данных пакета: %v", err)
 		}
 
+		// Задержка между отправками пакетов
 		time.Sleep(time.Duration(interval * float64(time.Second)))
 	}
 	return nil
+}
+
+// Функция для генерации полезной нагрузки
+func generatePayload(selectedSrc string, packetSizeStr string, contentBytes []byte) ([]byte, error) {
+	if selectedSrc == "pseudoRand" {
+		var payloadSize *big.Int
+		if packetSizeStr == "" {
+			var err error
+			payloadSize, err = rand.Int(rand.Reader, big.NewInt(1001)) // Генерация случайного размера до 1000
+			if err != nil {
+				return nil, fmt.Errorf("ошибка при генерации случайного размера пакета: %v", err)
+			}
+		} else {
+			size, err := strconv.Atoi(packetSizeStr)
+			if err != nil {
+				return nil, fmt.Errorf("ошибка преобразования размера пакета: %v", err)
+			}
+			payloadSize = big.NewInt(int64(size))
+		}
+
+		payload := make([]byte, int(payloadSize.Int64()))
+		_, err := rand.Read(payload)
+		if err != nil {
+			return nil, fmt.Errorf("ошибка при чтении случайных байтов: %v", err)
+		}
+		return payload, nil
+	} else if selectedSrc == "file" {
+		return contentBytes, nil
+	}
+	return nil, fmt.Errorf("неизвестный источник полезной нагрузки: %s", selectedSrc)
 }

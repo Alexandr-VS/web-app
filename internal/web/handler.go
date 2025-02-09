@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"web-app/internal/models"
 	"web-app/internal/sender"
 )
 
@@ -34,18 +35,20 @@ func SendPacketsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	macSrc := r.FormValue("mac-src")
-	macDst := r.FormValue("mac-dst")
-	ipSrc := r.FormValue("ip-src")
-	ipDst := r.FormValue("ip-dst")
-	srcPort := r.FormValue("src-port")
-	dstPort := r.FormValue("dst-port")
-	ttl := r.FormValue("TTL")
-	if ttl == "" {
-		ttl = "64"
+	params := models.PacketParams{
+		MacSrc:     r.FormValue("mac-src"),
+		MacDst:     r.FormValue("mac-dst"),
+		IpSrc:      r.FormValue("ip-src"),
+		IpDst:      r.FormValue("ip-dst"),
+		SrcPort:    r.FormValue("src-port"),
+		DstPort:    r.FormValue("dst-port"),
+		TTL:        r.FormValue("TTL"),
+		PacketSize: r.FormValue("packetSize"),
 	}
 
-	identifiers := []string{macSrc, macDst, ipSrc, ipDst, srcPort, dstPort, ttl}
+	if params.TTL == "" {
+		params.TTL = "64"
+	}
 
 	selectedSrc := r.FormValue("dataSource")
 
@@ -58,10 +61,12 @@ func SendPacketsHandler(w http.ResponseWriter, r *http.Request) {
 
 	interval, err := strconv.ParseFloat(r.FormValue("interval"), 64)
 	if err != nil {
-		fmt.Println("Ошибка преобразования:", err)
-		http.Error(w, "Ошибка преобразования", http.StatusBadRequest)
+		fmt.Println("Ошибка преобразования интервала:", err)
+		http.Error(w, "Ошибка преобразования интервала", http.StatusBadRequest)
 		return
 	}
+
+	packetSizeStr := r.FormValue("packetSize")
 
 	var contentBytes []byte
 	if r.FormValue("dataSource") == "file" {
@@ -89,7 +94,7 @@ func SendPacketsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = sender.SendPackets("eth0", selectedSrc, countOfPackets, interval, contentBytes, identifiers)
+	err = sender.SendPackets("ens33", selectedSrc, countOfPackets, interval, packetSizeStr, contentBytes, params)
 	if err != nil {
 		fmt.Println("Ошибка отправки пакетов")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
