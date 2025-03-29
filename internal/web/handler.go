@@ -13,7 +13,23 @@ import (
 
 func HomePageHandler(w http.ResponseWriter, r *http.Request) {
 	// Считывание шаблона
-	tmpl, err := template.ParseFiles("../../internal/web/templates/home.html")
+	tmpl, err := template.ParseFiles("../../internal/web/templates/choose.html")
+	if err != nil {
+		log.Printf("Шаблон не найден: %v", err)
+		http.Error(w, "Ошибка загрузки шаблона", http.StatusInternalServerError)
+		return
+	}
+
+	// Запуск шаблона
+	err = tmpl.Execute(w, nil)
+	if err != nil {
+		http.Error(w, "Ошибка выполнения шабона", http.StatusInternalServerError)
+	}
+}
+
+func Generator(w http.ResponseWriter, r *http.Request) {
+	// Считывание шаблона
+	tmpl, err := template.ParseFiles("../../internal/web/templates/generator.html")
 	if err != nil {
 		log.Printf("Шаблон не найден: %v", err)
 		http.Error(w, "Ошибка загрузки шаблона", http.StatusInternalServerError)
@@ -28,7 +44,7 @@ func HomePageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Обработчик отправки пакетов
-func SendPacketsHandler(w http.ResponseWriter, r *http.Request) {
+func GeneratePacketsHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
