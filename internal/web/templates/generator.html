@@ -7,6 +7,10 @@
     <link rel="stylesheet" href="/generator.css">
 </head>
 <body>
+    <div class="back-button-container">
+        <button class="back-button" onclick="history.back()">Назад</button>
+    </div>
+
     <h1>Генератор</h1>
     <form action="/send" method="post" enctype="multipart/form-data">
         <h2>Сетевые параметры</h2>
@@ -65,7 +69,7 @@
         <input type="text" placeholder="Введите число" id="interval" name="interval" required>
         <small>сек</small>
 
-        <button type="submit">Сгенерировать пакет</button>
+        <button class="submit-button" type="submit">Сгенерировать пакет</button>
     </form>
 
     <script>
