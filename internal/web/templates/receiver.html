@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Приёмник Пакетов</title>
+    <link rel="stylesheet" href="/receiver.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Приёмник Пакетов</h1>
+        <div id="packets" class="packets-box">
+            <h2>Принятые Пакеты:</h2>
+            <ul id="packets-list"></ul>
+        </div>
+    </div>
+
+    <script>
+        // Функция для получения пакетов с сервера
+        async function fetchPackets() {
+            try {
+                const response = await fetch('/get-packets');
+                if (!response.ok) {
+                    throw new Error('Ошибка сети');
+                }
+                const packets = await response.json();
+
+                const packetsList = document.getElementById('packets-list');
+                packetsList.innerHTML = ''; // Очищаем текущий список
+
+                packets.forEach(packet => {
+                    const li = document.createElement('li');
+                    li.textContent = packet;
+                    packetsList.appendChild(li);
+                });
+            } catch (error) {
+                console.error('Ошибка при получении пакетов:', error);
+            }
+        }
+
+        // Обновляем список пакетов каждые 5 секунд
+        setInterval(fetchPackets, 3000);
+    </script>
+</body>
+</html>

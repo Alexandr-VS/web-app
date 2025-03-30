@@ -23,7 +23,7 @@ func HomePageHandler(w http.ResponseWriter, r *http.Request) {
 	// Запуск шаблона
 	err = tmpl.Execute(w, nil)
 	if err != nil {
-		http.Error(w, "Ошибка выполнения шабона", http.StatusInternalServerError)
+		http.Error(w, "Ошибка выполнения шаблона", http.StatusInternalServerError)
 	}
 }
 
@@ -42,6 +42,8 @@ func Generator(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Ошибка выполнения шабона", http.StatusInternalServerError)
 	}
 }
+
+var packetChannel = make(chan string)
 
 // Обработчик отправки пакетов
 func GeneratePacketsHandler(w http.ResponseWriter, r *http.Request) {
@@ -85,7 +87,8 @@ func GeneratePacketsHandler(w http.ResponseWriter, r *http.Request) {
 	packetSizeStr := r.FormValue("packetSize")
 
 	var contentBytes []byte
-	if r.FormValue("dataSource") == "file" {
+
+	if selectedSrc == "file" {
 		err = r.ParseMultipartForm(10 << 20) // максимум 10Mb
 		if err != nil {
 			http.Error(w, "Ошибка при получении файла", http.StatusBadRequest)
@@ -110,18 +113,35 @@ func GeneratePacketsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = sender.SendPackets("ens33", selectedSrc, countOfPackets, interval, packetSizeStr, contentBytes, params)
+	if r.FormValue("toggleSwitch") == "on" {
+		// режим шлейфа
+	}
+
+	go sender.SendPackets("ens33", selectedSrc, countOfPackets, interval, packetSizeStr, contentBytes, params)
 	if err != nil {
 		fmt.Println("Ошибка отправки пакетов")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	tmpl, err := template.ParseFiles("../../internal/web/templates/success.html")
+	http.Redirect(w, r, "/generator", http.StatusSeeOther)
+}
+
+func ReceivePacketsHandler(w http.ResponseWriter, r *http.Request) {
+	tmpl, err := template.ParseFiles("../../internal/web/templates/receiver.html")
 	if err != nil {
 		http.Error(w, "Ошибка загрузки шаблона", http.StatusInternalServerError)
 		return
 	}
+
+	// Отправляем данные из канала в шаблон
+	go func() {
+		for packet := range packetChannel {
+			// Здесь можно обновить состояние для отображения на странице
+			log.Println(packet) // Логируем полученные пакеты
+			// Вы можете использовать механизм обновления страницы через AJAX или WebSocket
+		}
+	}()
 
 	err = tmpl.Execute(w, nil)
 	if err != nil {

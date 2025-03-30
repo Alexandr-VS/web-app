@@ -136,7 +136,7 @@ func generatePayload(selectedSrc string, packetSizeStr string, contentBytes []by
 		}
 
 		payload := make([]byte, int(payloadSize.Int64()))
-		_, err := rand.Read(payload)
+		_, err := rand.Read(payload) // заполнение полезной нагрузкой (вместо полинома происходит чтение из /dev/urandom или /dev/random, который вызывает getrandom(2))
 		if err != nil {
 			return nil, fmt.Errorf("ошибка при чтении случайных байтов: %v", err)
 		}
