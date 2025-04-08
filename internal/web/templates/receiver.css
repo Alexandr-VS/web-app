@@ -39,3 +39,26 @@ li {
     padding: 10px;
     border-radius: 4px;
 }
+
+input[type="text"], input[type="number"], input[type="file"], input[type="radio"] {
+    width: calc(100% - 22px);
+    padding: 10px;
+    margin: 5px 0 20px;
+    border: 2px solid #ccc;
+    border-radius: 5px;
+    transition: border-color 0.3s;
+}
+
+input[type="text"]:focus, input[type="number"]:focus {
+    border-color: #4CAF50;
+}
+
+.valid {
+    border-color: green;
+    background-color: #d4edda;
+}
+
+.invalid {
+    border-color: red;
+    background-color: #f8d7da;
+}

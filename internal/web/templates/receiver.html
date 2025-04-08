@@ -14,32 +14,29 @@
             <ul id="packets-list"></ul>
         </div>
     </div>
-
+    <script src="/receiver.js"></script>
     <script>
-        // Функция для получения пакетов с сервера
-        async function fetchPackets() {
-            try {
-                const response = await fetch('/get-packets');
-                if (!response.ok) {
-                    throw new Error('Ошибка сети');
+        document.getElementById('start-button').addEventListener('click', function() {
+            const ipDst = document.getElementById('ip-dst').value;
+
+            // отправка IP-адреса на сервер
+            fetch('/receive-packets', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ ipDst: ipDst })
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Обработка успешного ответа
+                    console.log('Прием пакетов начат');
+                } else {
+                    console.error('Ошибка при запуске приема пакетов');
                 }
-                const packets = await response.json();
-
-                const packetsList = document.getElementById('packets-list');
-                packetsList.innerHTML = ''; // Очищаем текущий список
-
-                packets.forEach(packet => {
-                    const li = document.createElement('li');
-                    li.textContent = packet;
-                    packetsList.appendChild(li);
-                });
-            } catch (error) {
-                console.error('Ошибка при получении пакетов:', error);
-            }
-        }
-
-        // Обновляем список пакетов каждые 5 секунд
-        setInterval(fetchPackets, 3000);
+            })
+            .catch(error => console.error('Ошибка:', error));
+        });
     </script>
 </body>
 </html>

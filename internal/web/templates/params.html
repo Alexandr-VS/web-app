@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Приёмник Пакетов</title>
+    <link rel="stylesheet" href="/receiver.css">
+</head>
+<body>
+    <form action="/receiver" method="post" enctype="multipart/form-data">
+        <label for="ip-dst">IP-адрес генератора:</label>
+        <input type="text" placeholder="Введите IP-адрес" id="ip-dst" name="ip-dst" oninput="validateIP(this)" required>
+
+        <label for="port-dst">Какой порт используется</label>
+        <input type="text" placeholder="Введите номер порта" id="port-dst" name="port-dst" oninput="validatePort(this)" required>
+
+        <button class="submit-button" type="submit">Запустить приёмник</button>
+    </form>
+
+    <script src="/params.js"></script>
+</body>
+</html>

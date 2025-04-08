@@ -1,12 +1,14 @@
 package web
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 	"web-app/internal/models"
 	"web-app/internal/sender"
 )
@@ -42,8 +44,6 @@ func Generator(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Ошибка выполнения шабона", http.StatusInternalServerError)
 	}
 }
-
-var packetChannel = make(chan string)
 
 // Обработчик отправки пакетов
 func GeneratePacketsHandler(w http.ResponseWriter, r *http.Request) {
@@ -127,24 +127,63 @@ func GeneratePacketsHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/generator", http.StatusSeeOther)
 }
 
-func ReceivePacketsHandler(w http.ResponseWriter, r *http.Request) {
-	tmpl, err := template.ParseFiles("../../internal/web/templates/receiver.html")
+var (
+	packetChannel = make(chan string)
+	mu            sync.Mutex
+	packets       []string
+)
+
+func GetParamsToReceive(w http.ResponseWriter, r *http.Request) {
+	tmpl, err := template.ParseFiles("../../internal/web/templates/params.html")
 	if err != nil {
 		http.Error(w, "Ошибка загрузки шаблона", http.StatusInternalServerError)
 		return
 	}
-
-	// Отправляем данные из канала в шаблон
-	go func() {
-		for packet := range packetChannel {
-			// Здесь можно обновить состояние для отображения на странице
-			log.Println(packet) // Логируем полученные пакеты
-			// Вы можете использовать механизм обновления страницы через AJAX или WebSocket
-		}
-	}()
-
 	err = tmpl.Execute(w, nil)
 	if err != nil {
 		http.Error(w, "Ошибка выполнения шаблона", http.StatusInternalServerError)
 	}
+}
+
+func ReceivePacketsHandler(w http.ResponseWriter, r *http.Request) {
+	var ipDst string
+	var portDst string
+	if r.Method == http.MethodPost {
+		ipDst = r.FormValue("ip-dst")
+		portDst = r.FormValue("port-dst")
+		// Запускаем приемник пакетов
+		go sender.ReceivePackets("ens33", packetChannel, ipDst, portDst)
+		go func() {
+			for packet := range packetChannel {
+				mu.Lock()
+				packets = append(packets, packet) // добавление пакета в срез
+				mu.Unlock()
+			}
+		}()
+
+		tmpl, err := template.ParseFiles("../../internal/web/templates/receiver.html")
+
+		if err != nil {
+			http.Error(w, "Ошибка загрузки шаблона", http.StatusInternalServerError)
+			return
+		}
+		err = tmpl.Execute(w, nil)
+
+		if err != nil {
+			http.Error(w, "Ошибка выполнения шаблона", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Обработка GET-запросов для получения списка пакетов
+	if r.Method == http.MethodGet {
+		mu.Lock()
+		defer mu.Unlock()
+		if err := json.NewEncoder(w).Encode(packets); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		// log.Println("Выполнен запрос GET для обновления списка пакетов на странице")
+		return
+	}
+
 }
