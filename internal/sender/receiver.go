@@ -3,6 +3,7 @@ package sender
 import (
 	"encoding/binary"
 	"log"
+	"strconv"
 	"time"
 	"web-app/internal/models"
 
@@ -12,7 +13,7 @@ import (
 )
 
 // ReceivePackets запускает приёмник пакетов и отправляет их в канал
-func ReceivePackets(interfaceName string, packetChannel chan<- models.PacketInfo, ipDst string, portDst string) {
+func ReceivePackets(interfaceName string, packetChannel chan<- models.PacketInfo, ipDst string, portDst string, totalPacketsStr string) {
 	handle, err := pcap.OpenLive(interfaceName, 1600, true, pcap.BlockForever)
 	if err != nil {
 		log.Fatalf("Ошибка открытия интерфейса: %v", err)
@@ -26,6 +27,13 @@ func ReceivePackets(interfaceName string, packetChannel chan<- models.PacketInfo
 
 	packetSource := gopacket.NewPacketSource(handle, layers.LinkTypeEthernet)
 
+	var totalDelay uint64
+	var receivedPackets uint64
+	missedPackets := make([]uint64, 0)
+
+	receivedMap := make(map[uint64]bool)
+
+	// Таймер для остановки приёмника
 	timer := time.NewTimer(5 * time.Second)
 	defer timer.Stop()
 
@@ -64,11 +72,38 @@ func ReceivePackets(interfaceName string, packetChannel chan<- models.PacketInfo
 						ReceivedTime: receivedTime,
 						Delay:        receivedTime - sentTime,
 					}
+					totalDelay += receivedTime - sentTime
+					receivedPackets++
+
+					// Добавляем номер пакета в хеш-таблицу
+					receivedMap[counter] = true
 				}
 			}
 		case <-timer.C:
 			log.Println("Таймер сработал, прекращаем приём пакетов")
-			return
+			close(packetChannel)
+			// Вычисление среднего времени задержки
+			var averageDelay float64
+			if receivedPackets > 0 {
+				averageDelay = float64(totalDelay) / float64(receivedPackets)
+			}
+
+			totalPackets, err := strconv.Atoi(totalPacketsStr)
+			if err != nil {
+				log.Println("Ошибка преобразования количества пакетов:", err)
+			}
+
+			// Определение пропущенных пакетов
+			for i := uint64(0); i < uint64(totalPackets); i++ {
+				if i >= receivedPackets {
+					missedPackets = append(missedPackets, i)
+				}
+			}
+
+			models.LastReport = models.PacketReport{
+				AverageDelay:  averageDelay,
+				MissedPackets: missedPackets,
+			}
 		}
 	}
 }

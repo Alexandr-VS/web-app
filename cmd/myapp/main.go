@@ -29,6 +29,8 @@ func main() {
 	mux.HandleFunc("/generator", web.Generator)
 	mux.HandleFunc("/receiver", web.ReceivePacketsHandler)
 	mux.HandleFunc("/params", web.GetParamsToReceive)
+	mux.HandleFunc("/report", web.ReportHandler)
+	mux.HandleFunc("/check-completion", web.CheckCompletionHandler)
 
 	// Запуск сервера
 	port := ":8080"

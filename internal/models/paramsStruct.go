@@ -17,3 +17,10 @@ type PacketInfo struct {
 	ReceivedTime uint64 `json:"receivedTime"`
 	Delay        uint64 `json:"delay"`
 }
+
+type PacketReport struct {
+	AverageDelay  float64  `json:"averageDelay"`
+	MissedPackets []uint64 `json:"missedPackets"`
+}
+
+var LastReport PacketReport

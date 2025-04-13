@@ -148,6 +148,7 @@ func GetParamsToReceive(w http.ResponseWriter, r *http.Request) {
 func ReceivePacketsHandler(w http.ResponseWriter, r *http.Request) {
 	var ipDst string
 	var portDst string
+	var totalPackets string
 	if r.Method == http.MethodPost {
 		mu.Lock()
 		packets = []models.PacketInfo{}
@@ -155,9 +156,10 @@ func ReceivePacketsHandler(w http.ResponseWriter, r *http.Request) {
 
 		ipDst = r.FormValue("ip-dst")
 		portDst = r.FormValue("port-dst")
+		totalPackets = r.FormValue("totalPackets")
 
 		// Запускаем приемник пакетов
-		go sender.ReceivePackets("ens33", packetChannel, ipDst, portDst)
+		go sender.ReceivePackets("ens33", packetChannel, ipDst, portDst, totalPackets)
 		go func() {
 			for packet := range packetChannel {
 				mu.Lock()
@@ -190,5 +192,44 @@ func ReceivePacketsHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 		return
+	}
+}
+
+func CheckCompletionHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		// Проверяем, завершен ли прием пакетов
+		completionStatus := map[string]bool{"completed": models.LastReport.AverageDelay > 0}
+		w.Header().Set("Content-Type", "application/json") // Установка заголовка Content-Type
+		if err := json.NewEncoder(w).Encode(completionStatus); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+	http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+}
+
+func ReportHandler(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if r.Method == http.MethodGet {
+		tmpl, err := template.ParseFiles("../../internal/web/templates/report.html")
+		if err != nil {
+			http.Error(w, "Ошибка загрузки шаблона", http.StatusInternalServerError)
+			return
+		}
+		err = tmpl.Execute(w, nil)
+		if err != nil {
+			http.Error(w, "Ошибка выполнения шаблона", http.StatusInternalServerError)
+			return
+		}
+	} else if r.Method == http.MethodPost {
+		// Отправляем последний отчет в формате JSON
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(models.LastReport); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	} else {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 	}
 }

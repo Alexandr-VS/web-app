@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отчет о потерянных пакетах</title>
+    <link rel="stylesheet" href="/receiver.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Отчет о потерянных пакетах</h1>
+        <div id="report">
+            <h2>Средняя задержка: <span id="averageDelay"></span> мс</h2>
+            <h3>Потерянные пакеты:</h3>
+            <ul id="missedPacketsList"></ul>
+        </div>
+        <button onclick="window.history.back()">Назад</button> <!-- Кнопка для возврата -->
+    </div>
+    <script>
+        async function fetchReport() {
+        try {
+            const response = await fetch('/report', { method: 'POST' }); // Указываем метод POST
+            if (!response.ok) {
+                throw new Error(`Ошибка при получении отчета: ${response.statusText}`);
+            }
+
+            const report = await response.json();
+
+            document.getElementById('averageDelay').textContent = report.averageDelay.toFixed(2); // Отображаем среднюю задержку
+
+            const missedPacketsList = document.getElementById('missedPacketsList');
+            missedPacketsList.innerHTML = ''; // Очищаем текущий список
+
+            report.missedPackets.forEach(packet => {
+                const li = document.createElement('li');
+                li.textContent = `Пакет #${packet}`;
+                missedPacketsList.appendChild(li);
+            });
+        } catch (error) {
+            console.error('Ошибка при получении отчета:', error);
+        }
+    }
+
+    // Загружаем отчет при загрузке страницы
+    window.onload = fetchReport;
+    </script>
+</body>
+</html>
