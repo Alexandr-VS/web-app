@@ -15,28 +15,5 @@
         </div>
     </div>
     <script src="/receiver.js"></script>
-    <script>
-        document.getElementById('start-button').addEventListener('click', function() {
-            const ipDst = document.getElementById('ip-dst').value;
-
-            // отправка IP-адреса на сервер
-            fetch('/receive-packets', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ ipDst: ipDst })
-            })
-            .then(response => {
-                if (response.ok) {
-                    // Обработка успешного ответа
-                    console.log('Прием пакетов начат');
-                } else {
-                    console.error('Ошибка при запуске приема пакетов');
-                }
-            })
-            .catch(error => console.error('Ошибка:', error));
-        });
-    </script>
 </body>
 </html>

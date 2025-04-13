@@ -11,9 +11,9 @@ async function fetchPackets() {
         packetsList.innerHTML = ''; // Очищаем текущий список
 
         packets.forEach(packet => {
-            const li = document.createElement('ul');
-            li.textContent = packet;
-            packetsList.appendChild(li);
+            const ul = document.createElement('ul');
+            ul.textContent = `Пакет #${packet.counter}: Время задержки пакета: ${packet.delay}`;
+            packetsList.appendChild(ul);
         });
     } catch (error) {
         console.error('Ошибка при получении пакетов:', error);

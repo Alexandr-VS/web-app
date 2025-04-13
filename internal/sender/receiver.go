@@ -1,8 +1,10 @@
 package sender
 
 import (
-	"fmt"
+	"encoding/binary"
 	"log"
+	"time"
+	"web-app/internal/models"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -10,30 +12,63 @@ import (
 )
 
 // ReceivePackets запускает приёмник пакетов и отправляет их в канал
-func ReceivePackets(interfaceName string, packetChannel chan<- string, ipDst string, portDst string) {
-	if handle, err := pcap.OpenLive(interfaceName, 1600, true, pcap.BlockForever); err != nil {
+func ReceivePackets(interfaceName string, packetChannel chan<- models.PacketInfo, ipDst string, portDst string) {
+	handle, err := pcap.OpenLive(interfaceName, 1600, true, pcap.BlockForever)
+	if err != nil {
 		log.Fatalf("Ошибка открытия интерфейса: %v", err)
-	} else if err = handle.SetBPFFilter("src host " + ipDst + " and udp port " + portDst); err != nil {
+	}
+	defer handle.Close()
+	log.Println("Приём начат")
+
+	if err := handle.SetBPFFilter("src host " + ipDst + " and udp port " + portDst); err != nil {
 		log.Fatalf("Ошибка установки фильтра: %v", err)
-	} else {
-		defer handle.Close()
+	}
 
-		packetSource := gopacket.NewPacketSource(handle, layers.LinkTypeEthernet)
+	packetSource := gopacket.NewPacketSource(handle, layers.LinkTypeEthernet)
 
-		for packet := range packetSource.Packets() {
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+
+	for {
+		select {
+		case packet := <-packetSource.Packets():
+			// Сброс таймера при получении пакета
+			if !timer.Stop() {
+				<-timer.C // Прочитать, если таймер уже сработал
+			}
+			timer.Reset(5 * time.Second)
+
 			// Обработка пакета
+			receivedTime := uint64(time.Now().UnixMilli())
+
 			if ipLayer := packet.Layer(layers.LayerTypeIPv4); ipLayer != nil {
-				ip, ok := ipLayer.(*layers.IPv4)
+				_, ok := ipLayer.(*layers.IPv4)
 				if !ok {
 					log.Println("Ошибка приведения типа для IP-слоя")
 					continue
 				}
-				if packet.ApplicationLayer() != nil {
-					// if ipDst == ip.SrcIP.String() {
-					packetChannel <- fmt.Sprintf("IP-адрес источника: %s, IP-адрес получателя: %s, Полезная нагрузка: %d", ip.SrcIP, ip.DstIP, packet.Layer(layers.LayerTypeUDP).(*layers.UDP))
-					// }
+
+				if appLayer := packet.ApplicationLayer(); appLayer != nil {
+					payload := appLayer.Payload()
+					if len(payload) < 16 {
+						log.Printf("Пакет слишком мал: %d байт\n", len(payload))
+						continue
+					}
+
+					counter := binary.BigEndian.Uint64(payload[0:8])
+					sentTime := binary.BigEndian.Uint64(payload[8:16])
+
+					packetChannel <- models.PacketInfo{
+						Counter:      counter,
+						SentTime:     sentTime,
+						ReceivedTime: receivedTime,
+						Delay:        receivedTime - sentTime,
+					}
 				}
 			}
+		case <-timer.C:
+			log.Println("Таймер сработал, прекращаем приём пакетов")
+			return
 		}
 	}
 }

@@ -128,9 +128,9 @@ func GeneratePacketsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 var (
-	packetChannel = make(chan string)
+	packetChannel = make(chan models.PacketInfo)
 	mu            sync.Mutex
-	packets       []string
+	packets       []models.PacketInfo
 )
 
 func GetParamsToReceive(w http.ResponseWriter, r *http.Request) {
@@ -149,8 +149,13 @@ func ReceivePacketsHandler(w http.ResponseWriter, r *http.Request) {
 	var ipDst string
 	var portDst string
 	if r.Method == http.MethodPost {
+		mu.Lock()
+		packets = []models.PacketInfo{}
+		mu.Unlock()
+
 		ipDst = r.FormValue("ip-dst")
 		portDst = r.FormValue("port-dst")
+
 		// Запускаем приемник пакетов
 		go sender.ReceivePackets("ens33", packetChannel, ipDst, portDst)
 		go func() {
@@ -158,6 +163,8 @@ func ReceivePacketsHandler(w http.ResponseWriter, r *http.Request) {
 				mu.Lock()
 				packets = append(packets, packet) // добавление пакета в срез
 				mu.Unlock()
+
+				log.Printf("Получен пакет #%d отправленный в %d и принятый в %d", packet.Counter, packet.SentTime, packet.ReceivedTime)
 			}
 		}()
 
@@ -182,8 +189,6 @@ func ReceivePacketsHandler(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewEncoder(w).Encode(packets); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
-		// log.Println("Выполнен запрос GET для обновления списка пакетов на странице")
 		return
 	}
-
 }
