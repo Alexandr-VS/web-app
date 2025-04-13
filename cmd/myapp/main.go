@@ -16,12 +16,21 @@ func main() {
 	// Обработка статических файлов
 	staticDir := http.FileServer(http.Dir(filepath.Join("..", "..", "internal", "web", "templates")))
 
-	mux.Handle("/styles.css", staticDir)
-	mux.Handle("/success.html", staticDir)
+	mux.Handle("/choose.css", staticDir)
+	mux.Handle("/generator.css", staticDir)
+	mux.Handle("/receiver.css", staticDir)
+	mux.Handle("/generator.js", staticDir)
+	mux.Handle("/receiver.js", staticDir)
+	mux.Handle("/params.js", staticDir)
 
 	// Обработка маршрутов
 	mux.HandleFunc("/", web.HomePageHandler)
-	mux.HandleFunc("/send", web.SendPacketsHandler)
+	mux.HandleFunc("/send", web.GeneratePacketsHandler)
+	mux.HandleFunc("/generator", web.Generator)
+	mux.HandleFunc("/receiver", web.ReceivePacketsHandler)
+	mux.HandleFunc("/params", web.GetParamsToReceive)
+	mux.HandleFunc("/report", web.ReportHandler)
+	mux.HandleFunc("/check-completion", web.CheckCompletionHandler)
 
 	// Запуск сервера
 	port := ":8080"

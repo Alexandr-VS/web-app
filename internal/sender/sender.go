@@ -2,6 +2,7 @@ package sender
 
 import (
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -13,6 +14,8 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 )
+
+var packetCounter uint64
 
 func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, interval float64, packetSizeStr string, contentBytes []byte, params models.PacketParams) error {
 	// Открытие интерфейса для отправки пакетов
@@ -114,6 +117,7 @@ func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, i
 		// Задержка между отправками пакетов
 		time.Sleep(time.Duration(interval * float64(time.Second)))
 	}
+	packetCounter = 0
 	return nil
 }
 
@@ -121,28 +125,62 @@ func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, i
 func generatePayload(selectedSrc string, packetSizeStr string, contentBytes []byte) ([]byte, error) {
 	if selectedSrc == "pseudoRand" {
 		var payloadSize *big.Int
+		const headerSize = 16 // 8 байт счётчик и 8 байт время задержки
 		if packetSizeStr == "" {
 			var err error
-			payloadSize, err = rand.Int(rand.Reader, big.NewInt(1001)) // Генерация случайного размера до 1000
-			if err != nil {
-				return nil, fmt.Errorf("ошибка при генерации случайного размера пакета: %v", err)
+			for {
+				payloadSize, err = rand.Int(rand.Reader, big.NewInt(1001)) // Генерация случайного размера до 1000
+
+				if err != nil {
+					return nil, fmt.Errorf("ошибка при генерации случайного размера пакета: %v", err)
+				}
+
+				// Проверка на минимальный размер полезной нагрузки
+				if payloadSize.Cmp(big.NewInt(15)) >= 0 {
+					break
+				}
 			}
+
 		} else {
 			size, err := strconv.Atoi(packetSizeStr)
-			if err != nil {
-				return nil, fmt.Errorf("ошибка преобразования размера пакета: %v", err)
+			if err != nil || size < headerSize {
+				return nil, fmt.Errorf("некорректный размер (минимум %d байт)", headerSize)
 			}
-			payloadSize = big.NewInt(int64(size))
+			payloadSize = big.NewInt(int64(size - headerSize))
 		}
 
-		payload := make([]byte, int(payloadSize.Int64()))
-		_, err := rand.Read(payload)
+		// Убедимся, что payloadSize не оотрицательное
+		if payloadSize.Cmp(big.NewInt(0)) < 0 {
+			return nil, fmt.Errorf("размер полезной нагрузки не может быть отрицательным")
+		}
+
+		// Общий размер полезной нагрузки
+		totalSize := int64(headerSize + payloadSize.Int64())
+
+		// Массив для полезной нагрузки
+		payload := make([]byte, totalSize)
+
+		// Первые 8 байт - счётчик
+		binary.BigEndian.PutUint64(payload[0:8], packetCounter)
+
+		// Текущее время в секундах
+		sentTime := uint64(time.Now().UnixMilli())
+
+		// Вторые 8 байт - для расчёта времени задержки
+		binary.BigEndian.PutUint64(payload[8:16], sentTime)
+
+		_, err := rand.Read(payload[headerSize:]) // заполнение полезной нагрузкой (вместо полинома происходит чтение из /dev/urandom или /dev/random, который вызывает getrandom(2))
 		if err != nil {
 			return nil, fmt.Errorf("ошибка при чтении случайных байтов: %v", err)
 		}
+
+		packetCounter++
+
 		return payload, nil
+
 	} else if selectedSrc == "file" {
 		return contentBytes, nil
 	}
+
 	return nil, fmt.Errorf("неизвестный источник полезной нагрузки: %s", selectedSrc)
 }
