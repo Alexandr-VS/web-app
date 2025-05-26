@@ -15,17 +15,15 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
-var packetCounter uint64
-
 func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, interval float64, packetSizeStr string, contentBytes []byte, params models.PacketParams) error {
 	// Открытие интерфейса для отправки пакетов
-	handle, err := pcap.OpenLive(interfaceName, 1500, false, pcap.BlockForever)
+	handle, err := pcap.OpenLive(interfaceName, 1500, true, pcap.BlockForever)
 	if err != nil {
 		return fmt.Errorf("ошибка открытия интерфейса: %v", err)
 	}
 	defer handle.Close()
 
-	buf := gopacket.NewSerializeBuffer()
+	// buf := gopacket.NewSerializeBuffer()
 	options := gopacket.SerializeOptions{
 		ComputeChecksums: true,
 		FixLengths:       true,
@@ -68,6 +66,14 @@ func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, i
 		return fmt.Errorf("ошибка преобразования TTL: %v", err)
 	}
 
+	if params.LoopbackMode {
+		// Меняем IP-адреса местами
+		srcIP, dstIP = dstIP, srcIP
+
+		// Меняем порты местами
+		srcPort, dstPort = dstPort, srcPort
+	}
+
 	// Создание Ethernet, IP и UDP заголовков
 	eth := layers.Ethernet{
 		EthernetType: layers.EthernetTypeIPv4,
@@ -90,9 +96,12 @@ func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, i
 
 	udp.SetNetworkLayerForChecksum(&ip)
 
+	var packetCounter uint64
+
 	// Отправка пакетов
 	for i := 0; i < countOfPackets; i++ {
-		payload, err := generatePayload(selectedSrc, packetSizeStr, contentBytes)
+		buf := gopacket.NewSerializeBuffer()
+		payload, err := generatePayload(selectedSrc, packetSizeStr, contentBytes, packetCounter)
 		if err != nil {
 			return err
 		}
@@ -116,13 +125,14 @@ func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, i
 
 		// Задержка между отправками пакетов
 		time.Sleep(time.Duration(interval * float64(time.Second)))
+		packetCounter++
 	}
 	packetCounter = 0
 	return nil
 }
 
 // Функция для генерации полезной нагрузки
-func generatePayload(selectedSrc string, packetSizeStr string, contentBytes []byte) ([]byte, error) {
+func generatePayload(selectedSrc string, packetSizeStr string, contentBytes []byte, packetCounter uint64) ([]byte, error) {
 	if selectedSrc == "pseudoRand" {
 		var payloadSize *big.Int
 		const headerSize = 16 // 8 байт счётчик и 8 байт время задержки
@@ -173,8 +183,6 @@ func generatePayload(selectedSrc string, packetSizeStr string, contentBytes []by
 		if err != nil {
 			return nil, fmt.Errorf("ошибка при чтении случайных байтов: %v", err)
 		}
-
-		packetCounter++
 
 		return payload, nil
 

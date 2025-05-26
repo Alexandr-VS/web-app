@@ -54,8 +54,8 @@ func GeneratePacketsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	params := models.PacketParams{
-		MacSrc:     r.FormValue("mac-src"),
-		MacDst:     r.FormValue("mac-dst"),
+		MacSrc:     "00-11-22-33-44-55",
+		MacDst:     "66-77-88-99-AA-BB",
 		IpSrc:      r.FormValue("ip-src"),
 		IpDst:      r.FormValue("ip-dst"),
 		SrcPort:    r.FormValue("src-port"),
@@ -113,24 +113,67 @@ func GeneratePacketsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if r.FormValue("toggleSwitch") == "on" {
-		// режим шлейфа
-	}
+	loopbackMode := r.FormValue("toggleSwitch") == "on"
+	params.LoopbackMode = loopbackMode
 
-	go sender.SendPackets("ens33", selectedSrc, countOfPackets, interval, packetSizeStr, contentBytes, params)
-	if err != nil {
-		fmt.Println("Ошибка отправки пакетов")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	// Запуск отправки пакетов
+	errCh := make(chan error)
 
-	http.Redirect(w, r, "/generator", http.StatusSeeOther)
+	// При активированном режиме шлейфа
+	if loopbackMode {
+		tmpl, err := template.ParseFiles("../../internal/web/templates/receiver.html")
+		if err != nil {
+			http.Error(w, "Ошибка загрузки шаблона", http.StatusInternalServerError)
+			return
+		}
+		err = tmpl.Execute(w, nil)
+		if err != nil {
+			http.Error(w, "Ошибка выполнения шаблона", http.StatusInternalServerError)
+		}
+
+		// Очищаем предыдущие пакеты
+		mu.Lock()
+		packets = []models.PacketInfo{}
+		mu.Unlock()
+
+		// Запуск приёмника с параметрами отправителя
+		packetChannel := make(chan models.PacketInfo)
+		go sender.ReceivePackets("ens33", packetChannel, params.IpSrc, params.SrcPort, strconv.Itoa(countOfPackets), loopbackMode)
+
+		// Запуск отправки пакетов
+		go func() {
+			err := sender.SendPackets("ens33", selectedSrc, countOfPackets, interval, packetSizeStr, contentBytes, params)
+			errCh <- err
+		}()
+
+		// Обработка пакетов
+		go func() {
+			// Ожидание завершения отправки
+			if err := <-errCh; err != nil {
+				log.Printf("Ошибка отправки: %v", err)
+				return
+			}
+			for packet := range packetChannel {
+				mu.Lock()
+				packets = append(packets, packet)
+				mu.Unlock()
+				log.Printf("Пакет в шлейфе: %+v", packet)
+			}
+		}()
+	} else {
+		go func() {
+			err := sender.SendPackets("ens33", selectedSrc, countOfPackets, interval, packetSizeStr, contentBytes, params)
+			if err != nil {
+				log.Printf("Ошибка отправки пакетов: %v", err)
+			}
+		}()
+		http.Redirect(w, r, "/generator", http.StatusSeeOther)
+	}
 }
 
 var (
-	packetChannel = make(chan models.PacketInfo)
-	mu            sync.Mutex
-	packets       []models.PacketInfo
+	mu      sync.Mutex
+	packets []models.PacketInfo
 )
 
 func GetParamsToReceive(w http.ResponseWriter, r *http.Request) {
@@ -149,6 +192,7 @@ func ReceivePacketsHandler(w http.ResponseWriter, r *http.Request) {
 	var ipDst string
 	var portDst string
 	var totalPackets string
+	var loopbackMode bool
 	if r.Method == http.MethodPost {
 		mu.Lock()
 		packets = []models.PacketInfo{}
@@ -157,18 +201,25 @@ func ReceivePacketsHandler(w http.ResponseWriter, r *http.Request) {
 		ipDst = r.FormValue("ip-dst")
 		portDst = r.FormValue("port-dst")
 		totalPackets = r.FormValue("totalPackets")
+		loopbackMode = r.FormValue("toggleSwitch") == "on"
 
-		// Запускаем приемник пакетов
-		go sender.ReceivePackets("ens33", packetChannel, ipDst, portDst, totalPackets)
-		go func() {
-			for packet := range packetChannel {
-				mu.Lock()
-				packets = append(packets, packet) // добавление пакета в срез
-				mu.Unlock()
+		if loopbackMode {
+			// В режиме шлейфа: только ретрансляция, статистика не собирается
+			go sender.ReceivePacketsWithRelay("ens33", ipDst, portDst)
+		} else {
+			// Обычный режим: приём и сбор статистики
+			packetChannel := make(chan models.PacketInfo)
+			go sender.ReceivePackets("ens33", packetChannel, ipDst, portDst, totalPackets, loopbackMode)
+			go func() {
+				for packet := range packetChannel {
+					mu.Lock()
+					packets = append(packets, packet) // добавление пакета в срез
+					mu.Unlock()
 
-				log.Printf("Получен пакет #%d отправленный в %d и принятый в %d", packet.Counter, packet.SentTime, packet.ReceivedTime)
-			}
-		}()
+					// log.Printf("Получен пакет #%d отправленный в %d и принятый в %d", packet.Counter, packet.SentTime, packet.ReceivedTime)
+				}
+			}()
+		}
 
 		tmpl, err := template.ParseFiles("../../internal/web/templates/receiver.html")
 

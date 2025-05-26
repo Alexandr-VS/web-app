@@ -27,16 +27,16 @@ function validateIP(input) {
     }
 }
 
-function validateMAC(input) {
-    const macPattern = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
-    if (macPattern.test(input.value)) {
-        input.classList.add('valid');
-        input.classList.remove('invalid');
-    } else {
-        input.classList.add('invalid');
-        input.classList.remove('valid');
-    }
-}
+// function validateMAC(input) {
+//     const macPattern = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
+//     if (macPattern.test(input.value)) {
+//         input.classList.add('valid');
+//         input.classList.remove('invalid');
+//     } else {
+//         input.classList.add('invalid');
+//         input.classList.remove('valid');
+//     }
+// }
 
 function validatePort(input){
     const port = parseInt(input.value, 10);
@@ -52,15 +52,15 @@ function validatePort(input){
 function checkInputsOnLoad() {
     const ipSrcInput = document.getElementById('ip-src');
     const ipDstInput = document.getElementById('ip-dst');
-    const macSrcInput = document.getElementById('mac-src');
-    const macDstInput = document.getElementById('mac-dst');
+    // const macSrcInput = document.getElementById('mac-src');
+    // const macDstInput = document.getElementById('mac-dst');
     const portSrcInput = document.getElementById('src-port');
     const portDstInput = document.getElementById('dst-port');
 
     validateIP(ipSrcInput);
     validateIP(ipDstInput);
-    validateMAC(macSrcInput);
-    validateMAC(macDstInput);
+    // validateMAC(macSrcInput);
+    // validateMAC(macDstInput);
     validatePort(portSrcInput);
     validatePort(portDstInput);
 }
