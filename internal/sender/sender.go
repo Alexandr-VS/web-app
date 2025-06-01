@@ -124,7 +124,7 @@ func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, i
 		}
 
 		// Задержка между отправками пакетов
-		time.Sleep(time.Duration(interval * float64(time.Second)))
+		// time.Sleep(time.Duration(interval * float64(time.Second)))
 		packetCounter++
 	}
 	packetCounter = 0
@@ -135,7 +135,7 @@ func SendPackets(interfaceName string, selectedSrc string, countOfPackets int, i
 func generatePayload(selectedSrc string, packetSizeStr string, contentBytes []byte, packetCounter uint64) ([]byte, error) {
 	if selectedSrc == "pseudoRand" {
 		var payloadSize *big.Int
-		const headerSize = 16 // 8 байт счётчик и 8 байт время задержки
+		const headerSize = 24 // 8 байт счётчик, 16 байта на время задержки
 		if packetSizeStr == "" {
 			var err error
 			for {
@@ -146,7 +146,7 @@ func generatePayload(selectedSrc string, packetSizeStr string, contentBytes []by
 				}
 
 				// Проверка на минимальный размер полезной нагрузки
-				if payloadSize.Cmp(big.NewInt(15)) >= 0 {
+				if payloadSize.Cmp(big.NewInt(24)) >= 0 {
 					break
 				}
 			}
@@ -174,7 +174,7 @@ func generatePayload(selectedSrc string, packetSizeStr string, contentBytes []by
 		binary.BigEndian.PutUint64(payload[0:8], packetCounter)
 
 		// Текущее время в секундах
-		sentTime := uint64(time.Now().UnixMilli())
+		sentTime := uint64(time.Now().UnixNano())
 
 		// Вторые 8 байт - для расчёта времени задержки
 		binary.BigEndian.PutUint64(payload[8:16], sentTime)

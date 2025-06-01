@@ -10,11 +10,43 @@ async function fetchPackets() {
         const packetsList = document.getElementById('packets-list');
         packetsList.innerHTML = ''; // Очищаем текущий список
 
+
+        if (packets.length === 0) {
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = 5; // Количество колонок в таблице
+            td.textContent = 'Пакеты не получены';
+            tr.appendChild(td);
+            packetsList.appendChild(tr);
+            return;
+        }
+
         packets.forEach(packet => {
-            const ul = document.createElement('ul');
-            ul.textContent = `Пакет #${packet.counter}: Время задержки пакета: ${packet.delay}`;
-            packetsList.appendChild(ul);
+            const tr = document.createElement('tr');
+
+            const tdCounter = document.createElement('td');
+            tdCounter.textContent = packet.counter;
+            tr.appendChild(tdCounter);
+
+            const tdTotalDelay = document.createElement('td');
+            tdTotalDelay.textContent = packet.totalDelay;
+            tr.appendChild(tdTotalDelay);
+
+            const tdForwardDelay = document.createElement('td');
+            tdForwardDelay.textContent = packet.forwardDelay;
+            tr.appendChild(tdForwardDelay);
+
+            const tdBackwardDelay = document.createElement('td');
+            tdBackwardDelay.textContent = packet.backwardDelay;
+            tr.appendChild(tdBackwardDelay);
+
+            const tdInterArrival = document.createElement('td');
+            tdInterArrival.textContent = packet.interArrival;
+            tr.appendChild(tdInterArrival);
+
+            packetsList.appendChild(tr);
         });
+        
     } catch (error) {
         console.error('Ошибка при получении пакетов:', error);
     }

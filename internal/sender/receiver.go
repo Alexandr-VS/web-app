@@ -4,7 +4,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"math"
 	"strconv"
+	"sync"
 	"time"
 	"web-app/internal/models"
 
@@ -28,14 +30,24 @@ func ReceivePackets(interfaceName string, packetChannel chan<- models.PacketInfo
 
 	packetSource := gopacket.NewPacketSource(handle, layers.LinkTypeEthernet)
 
-	var totalDelay uint64
-	var receivedPackets uint64
+	var (
+		totalForwardDelay  uint64
+		totalBackwardDelay uint64
+		maxInterArrival    uint64
+		lastReceivedTime   uint64
+		receivedPackets    uint64
+		totalDelay         uint64
+		totalInterArrival  uint64
+	)
 	missedPackets := make([]uint64, 0)
 
 	receivedMap := make(map[uint64]bool)
 
 	// Таймер для остановки приёмника
-	timer := time.NewTimer(10 * time.Second)
+	timer := time.NewTimer(5 * time.Second)
+	if loopbackMode {
+		timer = time.NewTimer(10 * time.Second)
+	}
 	defer timer.Stop()
 
 	for {
@@ -45,10 +57,9 @@ func ReceivePackets(interfaceName string, packetChannel chan<- models.PacketInfo
 			if !timer.Stop() {
 				<-timer.C // Прочитать, если таймер уже сработал
 			}
-			timer.Reset(5 * time.Second)
+			timer.Reset(7 * time.Second)
 
 			// Обработка пакета
-			receivedTime := uint64(time.Now().UnixMilli())
 
 			if ipLayer := packet.Layer(layers.LayerTypeIPv4); ipLayer != nil {
 				_, ok := ipLayer.(*layers.IPv4)
@@ -59,25 +70,58 @@ func ReceivePackets(interfaceName string, packetChannel chan<- models.PacketInfo
 
 				if appLayer := packet.ApplicationLayer(); appLayer != nil {
 					payload := appLayer.Payload()
-					if len(payload) < 16 {
+					if len(payload) < 24 {
 						log.Printf("Пакет слишком мал: %d байт\n", len(payload))
 						continue
 					}
 
 					counter := binary.BigEndian.Uint64(payload[0:8])
-					sentTime := binary.BigEndian.Uint64(payload[8:16])
+					sentTime1 := binary.BigEndian.Uint64(payload[8:16])
+					sentTime2 := binary.BigEndian.Uint64(payload[16:24]) // Время отправки от шлейфа
+					receivedTime := uint64(time.Now().UnixNano())
 
-					packetChannel <- models.PacketInfo{
-						Counter:      counter,
-						SentTime:     sentTime,
-						ReceivedTime: receivedTime,
-						Delay:        receivedTime - sentTime,
+					packetInfo := models.PacketInfo{
+						Counter:    counter,
+						TotalDelay: (receivedTime - sentTime1) / 1e6,
 					}
-					totalDelay += receivedTime - sentTime
+
+					packetInfo.InterArrival = 0
+					if lastReceivedTime > 0 {
+						packetInfo.InterArrival = receivedTime - lastReceivedTime
+					}
+
+					if packetInfo.InterArrival > maxInterArrival {
+						maxInterArrival = packetInfo.InterArrival
+					}
+
+					lastReceivedTime = receivedTime
+					if loopbackMode {
+						forwardDelayNs := int64(sentTime2) - int64(sentTime1)
+						backwardDelayNs := int64(receivedTime) - int64(sentTime2)
+
+						packetInfo.ForwardDelay = uint64(math.Abs(float64(forwardDelayNs) / 1e6))
+						packetInfo.BackwardDelay = uint64(math.Abs(float64(backwardDelayNs) / 1e6))
+					}
+
+					packetChannel <- packetInfo
+
+					// Накопление сумм для среднего
+					totalForwardDelay += packetInfo.ForwardDelay
+					totalBackwardDelay += packetInfo.BackwardDelay
+					totalDelay += packetInfo.TotalDelay
+					totalInterArrival += packetInfo.InterArrival
+
 					receivedPackets++
 
 					// Добавляем номер пакета в хеш-таблицу
 					receivedMap[counter] = true
+
+					fmt.Println("Пакет номер:", packetInfo.Counter,
+						"Время отправки с генератора:", sentTime1,
+						"Время отправки с шлейфа:", sentTime2,
+						"Время приёма пакета:", receivedTime,
+						"До шлейфа:", packetInfo.ForwardDelay,
+						"От шлейфа:", packetInfo.BackwardDelay)
 				}
 			}
 		case <-timer.C:
@@ -85,8 +129,15 @@ func ReceivePackets(interfaceName string, packetChannel chan<- models.PacketInfo
 			close(packetChannel)
 			// Вычисление среднего времени задержки
 			var averageDelay float64
+			var averageForward float64
+			var averageBackward float64
+			var averageInterArrival float64
+
 			if receivedPackets > 0 {
 				averageDelay = float64(totalDelay) / float64(receivedPackets)
+				averageForward = float64(totalForwardDelay) / float64(receivedPackets)
+				averageBackward = float64(totalBackwardDelay) / float64(receivedPackets)
+				averageInterArrival = float64(totalInterArrival) / float64(receivedPackets)
 			}
 
 			totalPackets, err := strconv.Atoi(totalPacketsStr)
@@ -102,15 +153,50 @@ func ReceivePackets(interfaceName string, packetChannel chan<- models.PacketInfo
 			}
 
 			models.LastReport = models.PacketReport{
-				AverageDelay:  averageDelay,
-				MissedPackets: missedPackets,
+				AverageTotal:       averageDelay,
+				MissedPackets:      missedPackets,
+				LoopbackMode:       loopbackMode,
+				AverageForward:     averageForward,
+				AverageBackward:    averageBackward,
+				MaxInterArrival:    maxInterArrival,
+				AverageInterArival: averageInterArrival,
 			}
 		}
 	}
 }
 
+var (
+	relayStopChan chan struct{}
+	relayMu       sync.Mutex
+)
+
+func StartRelay(interfaceName, ipDst, portDst string) {
+	relayMu.Lock()
+	defer relayMu.Unlock()
+
+	// Если уже запущен — остановим старый
+	if relayStopChan != nil {
+		close(relayStopChan)
+		relayStopChan = nil
+	}
+
+	relayStopChan = make(chan struct{})
+
+	go ReceivePacketsWithRelay(interfaceName, ipDst, portDst, relayStopChan)
+}
+
+func StopRelay() {
+	relayMu.Lock()
+	defer relayMu.Unlock()
+
+	if relayStopChan != nil {
+		close(relayStopChan)
+		relayStopChan = nil
+	}
+}
+
 // ReceivePacketsWithRelay принимает пакеты, меняет IP, порты и MAC, и отправляет обратно
-func ReceivePacketsWithRelay(interfaceName, ipDst, portDst string) {
+func ReceivePacketsWithRelay(interfaceName, ipDst, portDst string, stopChan chan struct{}) {
 	handle, err := pcap.OpenLive(interfaceName, 1600, true, pcap.BlockForever)
 	if err != nil {
 		log.Fatalf("Ошибка открытия интерфейса: %v", err)
@@ -125,54 +211,59 @@ func ReceivePacketsWithRelay(interfaceName, ipDst, portDst string) {
 
 	packetSource := gopacket.NewPacketSource(handle, layers.LinkTypeEthernet)
 
-	for packet := range packetSource.Packets() {
-		ethLayer := packet.Layer(layers.LayerTypeEthernet)
-		ipLayer := packet.Layer(layers.LayerTypeIPv4)
-		udpLayer := packet.Layer(layers.LayerTypeUDP)
+	for {
+		select {
+		case <-stopChan:
+			log.Println("Режим шлейфа остановлен")
+			return
+		case packet, ok := <-packetSource.Packets():
+			if !ok {
+				log.Println("Источник пакетов закрыт")
+				return
+			}
+			// Обработка пакета (ваш код)
+			ethLayer := packet.Layer(layers.LayerTypeEthernet)
+			ipLayer := packet.Layer(layers.LayerTypeIPv4)
+			udpLayer := packet.Layer(layers.LayerTypeUDP)
 
-		if ethLayer == nil || ipLayer == nil || udpLayer == nil {
-			continue
+			if ethLayer == nil || ipLayer == nil || udpLayer == nil {
+				continue
+			}
+
+			eth, _ := ethLayer.(*layers.Ethernet)
+			ip, _ := ipLayer.(*layers.IPv4)
+			udp, _ := udpLayer.(*layers.UDP)
+
+			ip.SrcIP, ip.DstIP = ip.DstIP, ip.SrcIP
+			udp.SrcPort, udp.DstPort = udp.DstPort, udp.SrcPort
+			eth.SrcMAC, eth.DstMAC = eth.DstMAC, eth.SrcMAC
+
+			buf := gopacket.NewSerializeBuffer()
+			opts := gopacket.SerializeOptions{
+				ComputeChecksums: true,
+				FixLengths:       true,
+			}
+
+			timestamp := uint64(time.Now().UnixNano())
+			binary.BigEndian.PutUint64(udp.Payload[16:24], timestamp)
+
+			udp.SetNetworkLayerForChecksum(ip)
+
+			err := gopacket.SerializeLayers(buf, opts,
+				eth,
+				ip,
+				udp,
+				gopacket.Payload(udp.Payload),
+			)
+			if err != nil {
+				log.Println("Ошибка сериализации пакета:", err)
+				continue
+			}
+
+			err = handle.WritePacketData(buf.Bytes())
+			if err != nil {
+				log.Println("Ошибка отправки пакета:", err)
+			}
 		}
-
-		eth, _ := ethLayer.(*layers.Ethernet)
-		ip, _ := ipLayer.(*layers.IPv4)
-		udp, _ := udpLayer.(*layers.UDP)
-
-		// Меняем IP-адреса местами
-		ip.SrcIP, ip.DstIP = ip.DstIP, ip.SrcIP
-
-		// Меняем порты местами
-		udp.SrcPort, udp.DstPort = udp.DstPort, udp.SrcPort
-
-		// Меняем MAC-адреса местами
-		eth.SrcMAC, eth.DstMAC = eth.DstMAC, eth.SrcMAC
-
-		// Пересчитываем UDP чексумму
-		udp.SetNetworkLayerForChecksum(ip)
-
-		buf := gopacket.NewSerializeBuffer()
-		opts := gopacket.SerializeOptions{
-			ComputeChecksums: true,
-			FixLengths:       true,
-		}
-
-		err := gopacket.SerializeLayers(buf, opts,
-			eth,
-			ip,
-			udp,
-			gopacket.Payload(udp.Payload),
-		)
-		if err != nil {
-			log.Println("Ошибка сериализации пакета:", err)
-			continue
-		}
-
-		err = handle.WritePacketData(buf.Bytes())
-		if err != nil {
-			log.Println("Ошибка отправки пакета:", err)
-		}
-
-		// Можно добавить небольшую задержку, чтобы снизить нагрузку
-		time.Sleep(10 * time.Millisecond)
 	}
 }

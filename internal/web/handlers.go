@@ -13,6 +13,8 @@ import (
 	"web-app/internal/sender"
 )
 
+var interfaceName string = "ens33"
+
 func HomePageHandler(w http.ResponseWriter, r *http.Request) {
 	// Считывание шаблона
 	tmpl, err := template.ParseFiles("../../internal/web/templates/choose.html")
@@ -138,11 +140,11 @@ func GeneratePacketsHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Запуск приёмника с параметрами отправителя
 		packetChannel := make(chan models.PacketInfo)
-		go sender.ReceivePackets("ens33", packetChannel, params.IpSrc, params.SrcPort, strconv.Itoa(countOfPackets), loopbackMode)
+		go sender.ReceivePackets(interfaceName, packetChannel, params.IpSrc, params.SrcPort, strconv.Itoa(countOfPackets), loopbackMode)
 
 		// Запуск отправки пакетов
 		go func() {
-			err := sender.SendPackets("ens33", selectedSrc, countOfPackets, interval, packetSizeStr, contentBytes, params)
+			err := sender.SendPackets(interfaceName, selectedSrc, countOfPackets, interval, packetSizeStr, contentBytes, params)
 			errCh <- err
 		}()
 
@@ -157,12 +159,12 @@ func GeneratePacketsHandler(w http.ResponseWriter, r *http.Request) {
 				mu.Lock()
 				packets = append(packets, packet)
 				mu.Unlock()
-				log.Printf("Пакет в шлейфе: %+v", packet)
+				// log.Printf("Пакет в шлейфе: %+v", packet)
 			}
 		}()
 	} else {
 		go func() {
-			err := sender.SendPackets("ens33", selectedSrc, countOfPackets, interval, packetSizeStr, contentBytes, params)
+			err := sender.SendPackets(interfaceName, selectedSrc, countOfPackets, interval, packetSizeStr, contentBytes, params)
 			if err != nil {
 				log.Printf("Ошибка отправки пакетов: %v", err)
 			}
@@ -205,11 +207,26 @@ func ReceivePacketsHandler(w http.ResponseWriter, r *http.Request) {
 
 		if loopbackMode {
 			// В режиме шлейфа: только ретрансляция, статистика не собирается
-			go sender.ReceivePacketsWithRelay("ens33", ipDst, portDst)
+			sender.StartRelay(interfaceName, ipDst, portDst)
+
+			// Сделать шаблон для отображения того, что включен режим шлейфа. С кнопкой "НАЗАД"
+			tmpl, err := template.ParseFiles("../../internal/web/templates/relay.html")
+
+			if err != nil {
+				http.Error(w, "Ошибка загрузки шаблона", http.StatusInternalServerError)
+				return
+			}
+			err = tmpl.Execute(w, nil)
+
+			if err != nil {
+				http.Error(w, "Ошибка выполнения шаблона", http.StatusInternalServerError)
+			}
+			return
+
 		} else {
 			// Обычный режим: приём и сбор статистики
 			packetChannel := make(chan models.PacketInfo)
-			go sender.ReceivePackets("ens33", packetChannel, ipDst, portDst, totalPackets, loopbackMode)
+			go sender.ReceivePackets(interfaceName, packetChannel, ipDst, portDst, totalPackets, loopbackMode)
 			go func() {
 				for packet := range packetChannel {
 					mu.Lock()
@@ -219,20 +236,20 @@ func ReceivePacketsHandler(w http.ResponseWriter, r *http.Request) {
 					// log.Printf("Получен пакет #%d отправленный в %d и принятый в %d", packet.Counter, packet.SentTime, packet.ReceivedTime)
 				}
 			}()
-		}
 
-		tmpl, err := template.ParseFiles("../../internal/web/templates/receiver.html")
+			tmpl, err := template.ParseFiles("../../internal/web/templates/receiver.html")
 
-		if err != nil {
-			http.Error(w, "Ошибка загрузки шаблона", http.StatusInternalServerError)
+			if err != nil {
+				http.Error(w, "Ошибка загрузки шаблона", http.StatusInternalServerError)
+				return
+			}
+			err = tmpl.Execute(w, nil)
+
+			if err != nil {
+				http.Error(w, "Ошибка выполнения шаблона", http.StatusInternalServerError)
+			}
 			return
 		}
-		err = tmpl.Execute(w, nil)
-
-		if err != nil {
-			http.Error(w, "Ошибка выполнения шаблона", http.StatusInternalServerError)
-		}
-		return
 	}
 
 	// Обработка GET-запросов для получения списка пакетов
@@ -246,10 +263,19 @@ func ReceivePacketsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func StopRelayHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		sender.StopRelay()
+		http.Redirect(w, r, "/params", http.StatusSeeOther)
+		return
+	}
+	http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+}
+
 func CheckCompletionHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		// Проверяем, завершен ли прием пакетов
-		completionStatus := map[string]bool{"completed": models.LastReport.AverageDelay > 0}
+		completionStatus := map[string]bool{"completed": models.LastReport.AverageTotal > 0}
 		w.Header().Set("Content-Type", "application/json") // Установка заголовка Content-Type
 		if err := json.NewEncoder(w).Encode(completionStatus); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

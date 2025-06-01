@@ -11,7 +11,20 @@
         <h1>Приёмник Пакетов</h1>
         <div id="packets" class="packets-box">
             <h2>Принятые Пакеты:</h2>
-            <ul id="packets-list"></ul>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Номер пакета</th>
+                        <th>Общая задержка, мс</th>
+                        <th>Задержка до шлейфа, мс</th>
+                        <th>Задержка обратно, мс</th>
+                        <th>Задержка между пакетами, нс</th>
+                    </tr>
+                </thead>
+                <tbody id="packets-list">
+                    <!-- Здесь JS будет динамически вставлять строки -->
+                </tbody>
+            </table>
         </div>
         <button id="reportButton" style="display:none;">Показать отчет</button>
     </div>

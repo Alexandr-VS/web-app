@@ -31,6 +31,7 @@ func main() {
 	mux.HandleFunc("/params", web.GetParamsToReceive)
 	mux.HandleFunc("/report", web.ReportHandler)
 	mux.HandleFunc("/check-completion", web.CheckCompletionHandler)
+	mux.HandleFunc("/stopRelay", web.StopRelayHandler)
 
 	// Запуск сервера
 	port := ":8080"

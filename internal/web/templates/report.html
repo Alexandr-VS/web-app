@@ -10,7 +10,12 @@
     <div class="container">
         <h1>Отчет о потерянных пакетах</h1>
         <div id="report">
-            <h2>Средняя задержка: <span id="averageDelay"></span> мс</h2>
+            <h2>Средняя общая задержка: <span id="averageTotal"></span> мс</h2>
+            <h3>Средняя задержка до шлейфа: <span id="averageForward"></span> мс</h3>
+            <h3>Средняя задержка обратно: <span id="averageBackward"></span> мс</h3>
+            <h3>Максимальная межпакетная задержка: <span id="maxInterArrival"></span> нс</h3>
+            <h3>Средняя межпакетная задержка: <span id="averageInterArrival"></span> мс</h3>
+
             <h3>Потерянные пакеты:</h3>
             <ul id="missedPacketsList"></ul>
         </div>
@@ -26,7 +31,11 @@
 
             const report = await response.json();
 
-            document.getElementById('averageDelay').textContent = report.averageDelay.toFixed(2); // Отображаем среднюю задержку
+            document.getElementById('averageTotal').textContent = report.averageTotal.toFixed(2);
+            document.getElementById('averageForward').textContent = report.averageForward.toFixed(2);
+            document.getElementById('averageBackward').textContent = report.averageBackward.toFixed(2);
+            document.getElementById('maxInterArrival').textContent = report.maxInterArrival;
+            document.getElementById('averageInterArrival').textContent = report.averageInterArrival.toFixed(2);
 
             const missedPacketsList = document.getElementById('missedPacketsList');
             missedPacketsList.innerHTML = ''; // Очищаем текущий список
